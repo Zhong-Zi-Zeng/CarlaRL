@@ -1,4 +1,4 @@
-from CarlaApi import CarlaApi
+from CarlaApiAsync import CarlaApi
 from Actor_Critic import Actor_Critic
 import carla
 import cv2
@@ -7,11 +7,7 @@ import numpy as np
 
 class main:
     def __init__(self):
-        self.CarlaApi = CarlaApi(host='localhost',
-                                 image_width=100,
-                                 image_height=100,
-                                 queue_max_size=5,
-                                 fps=30)
+        self.CarlaApi = CarlaApi()
 
         self.ActorCritic = Actor_Critic(n_actions=6)
         self.MIN_SPEED = 1
@@ -21,11 +17,11 @@ class main:
         self.train()
 
     def get_image(self):
-        sensor_data = self.CarlaApi.camera_data(2.0)
-        rgb_frame = sensor_data[0]
-        seg_frame = sensor_data[1]
+        sensor_data = self.CarlaApi.sensor_data()
+        bgr_frame = sensor_data['bgr_camera']
+        seg_frame = sensor_data['seg_camera']
 
-        return rgb_frame, seg_frame
+        return bgr_frame, seg_frame
 
     def train(self):
         self.CarlaApi.initial()
@@ -35,21 +31,19 @@ class main:
                 print('Episode:%d'%(i))
                 
                 while not done:
-                    self.CarlaApi.tick()
-                    rgb_frame, seg_frame = self.get_image()
+                    bgr_frame, seg_frame = self.get_image()
     
                     action = self.ActorCritic.choose_action(seg_frame/255)
                     self.control_car(action)
 
-                    self.CarlaApi.tick()
                     reward,done = self.compute_reward()
 
-                    next_rgb_frame, next_seg_frame = self.get_image()
+                    next_bgr_frame, next_seg_frame = self.get_image()
     
                     self.ActorCritic.learn_critic(seg_frame/255, reward, next_seg_frame/255, done)
                     self.ActorCritic.learn_actor(seg_frame/255, action)
 
-                    show_frame = np.hstack((seg_frame,rgb_frame))
+                    show_frame = np.hstack((seg_frame,bgr_frame))
                     cv2.imshow("",show_frame)
                     cv2.waitKey(1)
 
@@ -61,14 +55,13 @@ class main:
     """計算獎勵"""
     def compute_reward(self):
         sensor_data = self.CarlaApi.sensor_data()
-        lane_line_info = sensor_data[0]
-        collision_info = sensor_data[1]
-        traffic_info = sensor_data[2]
-        car_speed = sensor_data[3]
+        lane_line_info = sensor_data['lane_line_sensor']
+        collision_info = sensor_data['collision_sensor']
+        traffic_info = sensor_data['traffic_info']
+        car_speed = sensor_data['car_speed']
 
         reward = 0
         done = False
-        print("car_speed:",car_speed)
         print(sensor_data)
 
         if(self.MIN_SPEED <= car_speed <= self.MAX_SPEED):

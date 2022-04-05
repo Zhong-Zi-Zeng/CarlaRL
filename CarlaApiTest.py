@@ -19,6 +19,7 @@ client.set_timeout(30.0)
 # 建立world物件，模擬環境裡的物件都是由這個來管理
 world = client.get_world()
 # world.tick()
+
 blueprint_library = world.get_blueprint_library()
 
 # ============車子============
@@ -33,15 +34,15 @@ transform = random.choice(world.get_map().get_spawn_points())
 vehicle = world.spawn_actor(bp, transform)
 
 # 是否將車子設為自動駕駛
-vehicle.set_autopilot(False)
+vehicle.set_autopilot(True)
 
 actor_list.append(vehicle)
 
 # ============控制車子============
-car_control = carla.VehicleControl()
-car_control.throttle = 0.5
-car_control.steer = 0.3
-vehicle.apply_control(car_control)
+# car_control = carla.VehicleControl()
+# car_control.throttle = 0.5
+# car_control.steer = 0.3
+# vehicle.apply_control(car_control)
 
 # ============車道線偵測============
 def out_lane_line(event):
