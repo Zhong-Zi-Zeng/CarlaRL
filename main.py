@@ -1,11 +1,9 @@
-from tkinter.messagebox import NO
 from CarlaApi import CarlaApi
 from Actor_Critic import Actor_Critic
 import carla
 import cv2
 import numpy as np
-from queue import Queue
-import time
+
 
 class main:
     def __init__(self):
@@ -38,11 +36,13 @@ class main:
                 print('Episode:%d'%(i))
                 
                 while not done:
+                    self.CarlaApi.tick()
                     rgb_frame, seg_frame = self.get_image()
     
                     action = self.ActorCritic.choose_action(seg_frame/255)
                     self.control_car(action)
 
+                    self.CarlaApi.tick()
                     reward,done = self.compute_reward()
     
                     next_rgb_frame, next_seg_frame = self.get_image()

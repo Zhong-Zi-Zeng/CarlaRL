@@ -130,18 +130,28 @@ class CarlaApi:
 
             return seg_frame
 
-        self.world.tick()
         rgb_info = self.rgb_image_queue.get(timeout=timeout)
         rgb_frame = process_rgb_frame(rgb_info)
         seg_info = self.seg_image_queue.get(timeout=timeout)
         seg_frame = process_seg_frame(seg_info)
 
         return rgb_frame, seg_frame
- 
+
+    """進行模擬"""
+    def tick(self):
+        self.world.tick()
+
     """返回感測器資料"""
     def sensor_data(self):
-        lane_line_info = None if self.lane_line_info_queue.empty() else self.lane_line_info_queue.get().frame
-        collision_info = None if self.collision_info_queue.empty() else self.collision_info_queue.get().frame
+        lane_line_info = None
+        collision_info = None
+
+        if not self.lane_line_info_queue.empty():
+            lane_line_info = self.lane_line_info_queue.get()
+
+        if not self.collision_info_queue.empty():
+            collection_info = self.collision_info_queue.get()
+
         traffic_light_info = self.vehicle.get_traffic_light_state()
 
         car_speed = self.vehicle.get_velocity()
