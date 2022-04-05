@@ -11,6 +11,8 @@ class CarlaApi:
         self.blueprint_library = None
         self.vehicle = None
         self.vehicle_transform = None
+        self.x_frame = None
+
         self.HOST = host
         self.IMAGE_WIDTH = image_width
         self.IMAGE_HEIGHT = image_height
@@ -108,6 +110,10 @@ class CarlaApi:
 
     """重置"""
     def reset(self):
+        control = carla.VehicleControl()
+        control.throttle = 0.5
+        control.steer = 0.0
+        self.control_vehicle(control)
         self._spawn_vehicle()
 
     """返回攝影機資料"""
@@ -139,18 +145,26 @@ class CarlaApi:
 
     """進行模擬"""
     def tick(self):
-        self.world.tick()
+        self.x_frame = self.world.tick()
 
     """返回感測器資料"""
     def sensor_data(self):
         lane_line_info = None
         collision_info = None
 
-        if not self.lane_line_info_queue.empty():
+        # if not self.lane_line_info_queue.empty():
+        while not self.lane_line_info_queue.empty():
             lane_line_info = self.lane_line_info_queue.get()
+            lane_line_info = True if lane_line_info.frame == self.x_frame else None
+            if lane_line_info:
+                break
 
-        if not self.collision_info_queue.empty():
-            collection_info = self.collision_info_queue.get()
+        # if not self.collision_info_queue.empty():
+        while not self.collision_info_queue.empty():
+            collision_info = self.collision_info_queue.get()
+            collision_info = True if collision_info == self.x_frame else None
+            if collision_info:
+                break
 
         traffic_light_info = self.vehicle.get_traffic_light_state()
 

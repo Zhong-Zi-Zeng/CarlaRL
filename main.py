@@ -17,7 +17,6 @@ class main:
         self.MIN_SPEED = 1
         self.MAX_SPEED = 30
         self.EPISODES = 10000
-        # self.BATCH_SIZE = 3
 
         self.train()
 
@@ -44,7 +43,7 @@ class main:
 
                     self.CarlaApi.tick()
                     reward,done = self.compute_reward()
-    
+
                     next_rgb_frame, next_seg_frame = self.get_image()
     
                     self.ActorCritic.learn_critic(seg_frame/255, reward, next_seg_frame/255, done)
@@ -70,11 +69,12 @@ class main:
         reward = 0
         done = False
         print("car_speed:",car_speed)
+        print(sensor_data)
 
         if(self.MIN_SPEED <= car_speed <= self.MAX_SPEED):
             speed_reward = 1.4 * (car_speed - self.MIN_SPEED)
         elif (car_speed < self.MIN_SPEED):
-            speed_reward = 2 * (car_speed - self.MIN_SPEED)
+            speed_reward = 2.5 * (car_speed - self.MIN_SPEED)
         elif (car_speed > self.MAX_SPEED):
             speed_reward = 2 * (self.MAX_SPEED - car_speed)
 
@@ -98,7 +98,7 @@ class main:
                 0:前進、1:煞車、2:半左轉、3:半右轉、4:全左轉、5:全右轉
         """
         control = carla.VehicleControl()
-        control.throttle = 0.8
+        control.throttle = 0.5
         if (action == 0):
             control.steer = 0.0
         elif (action == 1):

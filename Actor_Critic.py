@@ -24,7 +24,7 @@ class Actor_Critic():
     def choose_action(self,state):
         state = tf.convert_to_tensor([state],dtype=tf.float16)
         probability = self.actor_network(state)
-        print(probability)
+        # print(probability)
         action_probs = tfp.distributions.Categorical(probs=probability)
         action = action_probs.sample()
 
