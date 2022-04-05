@@ -48,7 +48,7 @@ class CarlaApi:
         def check_frame(sensor_queue):
             while True:
                 try:
-                    data = sensor_queue.get(timeout=0.3)
+                    data = sensor_queue.get(timeout=0.2)
                     print('data:',data.frame)
                     if data.frame == world_frame:
                         return data
@@ -149,6 +149,9 @@ class CarlaApi:
                 self.sensor_info['car_speed'] = car_speed
 
                 return self.sensor_info
+
+
+
 
 
 
