@@ -44,6 +44,7 @@ class CarlaApi:
         world_frame = WorldSnapshot.frame
         self.sensor_info = {}
         print('world:',world_frame)
+
         def check_frame(sensor_queue):
             while True:
                 try:
@@ -124,7 +125,7 @@ class CarlaApi:
     """重置"""
     def reset(self):
         control = carla.VehicleControl()
-        control.throttle = 0.5
+        control.throttle = 0.0
         control.steer = 0.0
         self._spawn_vehicle()
 

@@ -62,7 +62,6 @@ class main:
 
         reward = 0
         done = False
-        print(sensor_data)
 
         if(self.MIN_SPEED <= car_speed <= self.MAX_SPEED):
             speed_reward = 1.4 * (car_speed - self.MIN_SPEED)
