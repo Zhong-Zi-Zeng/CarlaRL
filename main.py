@@ -25,6 +25,7 @@ class main:
 
     def train(self):
         self.CarlaApi.initial()
+        self.CarlaApi.wait_sim()
         try:
             for i in range(self.EPISODES):
                 done = False
@@ -62,7 +63,7 @@ class main:
 
         reward = 0
         done = False
-
+        print(lane_line_info,collision_info)
         if(self.MIN_SPEED <= car_speed <= self.MAX_SPEED):
             speed_reward = 1.4 * (car_speed - self.MIN_SPEED)
         elif (car_speed < self.MIN_SPEED):
@@ -79,7 +80,7 @@ class main:
             reward = -40
             done = True
 
-        print('reward:',reward)
+        # print('reward:',reward)
 
         return reward, done
 
@@ -90,7 +91,7 @@ class main:
                 0:前進、1:煞車、2:半左轉、3:半右轉、4:全左轉、5:全右轉
         """
         control = carla.VehicleControl()
-        control.throttle = 0.5
+        control.throttle = 0.4
         if (action == 0):
             control.steer = 0.0
         elif (action == 1):
