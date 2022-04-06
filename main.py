@@ -25,7 +25,7 @@ class main:
 
     def train(self):
         self.CarlaApi.initial()
-        self.CarlaApi.wait_sim()
+        self.CarlaApi.wait_for_sim()
         try:
             for i in range(self.EPISODES):
                 done = False
@@ -33,7 +33,12 @@ class main:
                 
                 while not done:
                     bgr_frame, seg_frame = self.get_image()
-    
+
+                    show_frame = np.hstack((seg_frame, bgr_frame))
+                    cv2.imshow("", show_frame)
+                    if cv2.waitKey(1) == ord('q'):
+                        exit()
+
                     action = self.ActorCritic.choose_action(seg_frame/255)
                     self.control_car(action)
 
@@ -43,10 +48,6 @@ class main:
     
                     self.ActorCritic.learn_critic(seg_frame/255, reward, next_seg_frame/255, done)
                     self.ActorCritic.learn_actor(seg_frame/255, action)
-
-                    show_frame = np.hstack((seg_frame,bgr_frame))
-                    cv2.imshow("",show_frame)
-                    cv2.waitKey(1)
 
                 self.CarlaApi.reset()
         finally:
@@ -75,9 +76,11 @@ class main:
 
         if lane_line_info:
             reward = -40
-            done = True
+            # done = True
         if collision_info:
             reward = -40
+            # done = True
+        if(sensor_data['flag']):
             done = True
 
         # print('reward:',reward)
@@ -92,6 +95,7 @@ class main:
         """
         control = carla.VehicleControl()
         control.throttle = 0.4
+        control.brake = 0
         if (action == 0):
             control.steer = 0.0
         elif (action == 1):

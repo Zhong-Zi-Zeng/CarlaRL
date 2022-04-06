@@ -28,6 +28,7 @@ class CarlaApi:
         self.vehicle = None
         self.vehicle_transform = None
         self.frame = 0
+        self.flag = False
 
         self.sensor_list = []
         self.sensor_queue_list = []
@@ -43,19 +44,21 @@ class CarlaApi:
 
     """on_tick的回調函式"""
     def _callback(self,WorldSnapshot):
-        def check_frame(sensor_queue, sensor_name):
+        def check_frame(sensor_queue,sensor_name):
             if len(sensor_queue):
                 data = sensor_queue.pop()
-                # if sensor_name == 'lane_line_sensor' or sensor_name == "collision_sensor":
-                #     sensor_queue.clear()
+                if(sensor_name == 'lane_line_sensor' or sensor_name == 'collision_sensor'):
+                    sensor_queue.clear()
+                    self.flag = True
                 return data
             return
 
         sensor_info = {sensor_name : check_frame(sensor_queue,sensor_name) \
                             for sensor_queue,sensor_name in self.sensor_queue_list}
         self.sensor_info_queue.append(sensor_info)
+
     """等待模擬開始"""
-    def wait_sim(self):
+    def wait_for_sim(self):
         self.world.wait_for_tick()
 
     """產生車輛"""
@@ -107,6 +110,11 @@ class CarlaApi:
             sensor.listen(Q.append)
             self.sensor_queue_list.append([Q,sensor_name])
 
+    """清空佇列"""
+    def _clear_queue(self):
+        for sensor_queue, sensor_name in self.sensor_queue_list:
+            sensor_queue.clear()
+
     """銷毀生成物件"""
     def destroy(self):
         self.vehicle.destroy()
@@ -123,9 +131,13 @@ class CarlaApi:
 
     """重置"""
     def reset(self):
-        control = carla.VehicleControl()
-        control.throttle = 0.0
-        control.steer = 0.0
+        velocity = carla.Vector3D()
+        velocity.x = 0.0
+        velocity.y = 0.0
+        velocity.z = 0.0
+        self._clear_queue()
+        self.flag = False
+        self.vehicle.set_target_velocity(velocity)
         self._spawn_vehicle()
 
     """控制車子"""
@@ -147,6 +159,8 @@ class CarlaApi:
                 car_speed = self.vehicle.get_velocity()
                 car_speed = np.sqrt(car_speed.x ** 2 + car_speed.y ** 2 + car_speed.z ** 2) * 3.6
                 sensor_info['car_speed'] = car_speed
+
+                sensor_info['flag'] = self.flag
 
                 return sensor_info
             except:
