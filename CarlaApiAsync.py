@@ -4,6 +4,7 @@ from queue import Queue
 from collections import deque
 
 
+
 def process_bgr_frame(bgr_frame):
     bgr_frame.convert(carla.ColorConverter.Raw)
     array = np.frombuffer(bgr_frame.raw_data, dtype=np.uint8)
@@ -27,12 +28,16 @@ class CarlaApi:
         self.blueprint_library = None
         self.vehicle = None
         self.vehicle_transform = None
+        self.callback_id = None
+        self.block = False
         self.frame = 0
-        self.flag = False
 
         self.sensor_list = []
+        self.camera_list = []
         self.sensor_queue_list = []
+        self.camera_queue_list = []
         self.sensor_info_queue = deque()
+        self.camera_info_queue = deque()
 
     """連接到模擬環境"""
     def connect_to_world(self):
@@ -42,20 +47,33 @@ class CarlaApi:
         self.world = client.get_world()
         self.blueprint_library = self.world.get_blueprint_library()
 
+    """取出佇列資料"""
+    def pop_queue(self,Q):
+        data = Q.pop() if len(Q) else None
+        return data
+
     """on_tick的回調函式"""
     def _callback(self,WorldSnapshot):
-        def check_frame(sensor_queue,sensor_name):
-            if len(sensor_queue):
-                data = sensor_queue.pop()
-                if(sensor_name == 'lane_line_sensor' or sensor_name == 'collision_sensor'):
-                    sensor_queue.clear()
-                    self.flag = True
-                return data
-            return
+        self._camera_callback()
+        self._sensor_callback()
 
-        sensor_info = {sensor_name : check_frame(sensor_queue,sensor_name) \
-                            for sensor_queue,sensor_name in self.sensor_queue_list}
-        self.sensor_info_queue.append(sensor_info)
+    """相機回調函式"""
+    def _camera_callback(self):
+        camera_info = {camera_name : self.pop_queue(camera_queue) \
+                       for camera_queue, camera_name in self.camera_queue_list}
+
+        self.camera_info_queue.append(camera_info)
+
+    """感測器回調函式"""
+    def _sensor_callback(self):
+        sensor_info = {sensor_name : self.pop_queue(sensor_queue) \
+                       for sensor_queue, sensor_name in self.sensor_queue_list}
+
+        if not self.block:
+            self.sensor_info_queue.append(sensor_info)
+
+        if sensor_info['lane_line_sensor'] or sensor_info['collision_sensor']:
+            self.block = True
 
     """等待模擬開始"""
     def wait_for_sim(self):
@@ -71,8 +89,8 @@ class CarlaApi:
             self.vehicle = self.world.spawn_actor(vehicle_bp, self.vehicle_transform)
         self.vehicle.set_autopilot(False)
 
-    """產生感測器"""
-    def _spawn_sensor(self):
+    """產生攝影機"""
+    def _spawn_camera(self):
         """產生bgr攝影機到車上"""
         bgr_camera_bp = self.blueprint_library.find('sensor.camera.rgb')
         bgr_camera_bp.set_attribute('image_size_x', '100')
@@ -80,7 +98,7 @@ class CarlaApi:
         bgr_camera_transform = carla.Transform(carla.Location(x=1.5, z=2.4))
         bgr_camera = self.world.spawn_actor(bgr_camera_bp, bgr_camera_transform, attach_to=self.vehicle)
 
-        self.sensor_list.append([bgr_camera,'bgr_camera'])
+        self.camera_list.append([bgr_camera, 'bgr_camera'])
 
         """產生SEG攝影機到車上"""
         seg_camera_bp = self.blueprint_library.find('sensor.camera.semantic_segmentation')
@@ -89,8 +107,10 @@ class CarlaApi:
         seg_camera_transform = carla.Transform(carla.Location(x=1.5, z=2.4))
         seg_camera = self.world.spawn_actor(seg_camera_bp, seg_camera_transform, attach_to=self.vehicle)
 
-        self.sensor_list.append([seg_camera,'seg_camera'])
+        self.camera_list.append([seg_camera, 'seg_camera'])
 
+    """產生感測器"""
+    def _spawn_sensor(self):
         """產生車道偵測感測器"""
         lane_sensor_bp = self.blueprint_library.find('sensor.other.lane_invasion')
         lane_line_sensor = self.world.spawn_actor(lane_sensor_bp, carla.Transform(), attach_to=self.vehicle)
@@ -110,10 +130,19 @@ class CarlaApi:
             sensor.listen(Q.append)
             self.sensor_queue_list.append([Q,sensor_name])
 
+        for camera, camera_name in self.camera_list:
+            Q = deque()
+            camera.listen(Q.append)
+            self.camera_queue_list.append([Q,camera_name])
+
     """清空佇列"""
     def _clear_queue(self):
+        self.sensor_info_queue.clear()
         for sensor_queue, sensor_name in self.sensor_queue_list:
             sensor_queue.clear()
+
+        for camera_queue, camera_name in self.camera_queue_list:
+            camera_queue.clear()
 
     """銷毀生成物件"""
     def destroy(self):
@@ -126,8 +155,9 @@ class CarlaApi:
         self.connect_to_world()
         self._spawn_vehicle()
         self._spawn_sensor()
+        self._spawn_camera()
         self._build_queue()
-        self.world.on_tick(self._callback)
+        self.callback_id = self.world.on_tick(self._callback)
 
     """重置"""
     def reset(self):
@@ -135,11 +165,10 @@ class CarlaApi:
         velocity.x = 0.0
         velocity.y = 0.0
         velocity.z = 0.0
-        self._clear_queue()
-        self.flag = False
+        self.block = False
         self.vehicle.set_target_velocity(velocity)
         self._spawn_vehicle()
-
+        self._clear_queue()
     """控制車子"""
     def control_vehicle(self,control):
         if isinstance(control,carla.VehicleControl):
@@ -147,23 +176,31 @@ class CarlaApi:
         else:
             print('The parameter "control" must be carla.VehicleControl object.')
 
+    """返回攝影機數據"""
+    def camera_data(self):
+        while True:
+            try:
+                camera_info = self.camera_info_queue.pop()
+                camera_info['bgr_camera'] = process_bgr_frame(camera_info['bgr_camera'])
+                camera_info['seg_camera'] = process_seg_frame(camera_info['seg_camera'])
+
+                return camera_info
+            except:
+                continue
+
+
     """返回感測器數據"""
     def sensor_data(self):
         while True:
             try:
                 sensor_info = self.sensor_info_queue.pop()
-                sensor_info['bgr_camera'] = process_bgr_frame(sensor_info['bgr_camera'])
-                sensor_info['seg_camera'] = process_seg_frame(sensor_info['seg_camera'])
                 sensor_info['traffic_info'] = self.vehicle.get_traffic_light_state()
 
                 car_speed = self.vehicle.get_velocity()
                 car_speed = np.sqrt(car_speed.x ** 2 + car_speed.y ** 2 + car_speed.z ** 2) * 3.6
                 sensor_info['car_speed'] = car_speed
 
-                sensor_info['flag'] = self.flag
-
                 return sensor_info
             except:
                 continue
-
 

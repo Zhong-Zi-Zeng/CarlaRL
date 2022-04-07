@@ -17,20 +17,20 @@ class main:
         self.train()
 
     def get_image(self):
-        sensor_data = self.CarlaApi.sensor_data()
-        bgr_frame = sensor_data['bgr_camera']
-        seg_frame = sensor_data['seg_camera']
+        camera_data = self.CarlaApi.camera_data()
+        bgr_frame = camera_data['bgr_camera']
+        seg_frame = camera_data['seg_camera']
 
         return bgr_frame, seg_frame
 
     def train(self):
         self.CarlaApi.initial()
         self.CarlaApi.wait_for_sim()
+
         try:
             for i in range(self.EPISODES):
                 done = False
                 print('Episode:%d'%(i))
-                
                 while not done:
                     bgr_frame, seg_frame = self.get_image()
 
@@ -64,26 +64,25 @@ class main:
 
         reward = 0
         done = False
-        print(lane_line_info,collision_info)
+
         if(self.MIN_SPEED <= car_speed <= self.MAX_SPEED):
-            speed_reward = 1.4 * (car_speed - self.MIN_SPEED)
+            speed_reward = 1.5 * (car_speed - self.MIN_SPEED)
         elif (car_speed < self.MIN_SPEED):
-            speed_reward = 2.5 * (car_speed - self.MIN_SPEED)
+            speed_reward = 1.5 * (car_speed - self.MIN_SPEED)
         elif (car_speed > self.MAX_SPEED):
-            speed_reward = 2 * (self.MAX_SPEED - car_speed)
+            speed_reward = 1.5 * (self.MAX_SPEED - car_speed)
 
         reward += speed_reward
 
-        if lane_line_info:
-            reward = -40
-            # done = True
-        if collision_info:
-            reward = -40
-            # done = True
-        if(sensor_data['flag']):
+        if lane_line_info or collision_info:
             done = True
+            reward = -20
 
-        # print('reward:',reward)
+        # if(sensor_data['restart_flag']):
+        #     reward = -10
+        #     done = True
+
+        print('reward:',reward)
 
         return reward, done
 
@@ -94,7 +93,7 @@ class main:
                 0:前進、1:煞車、2:半左轉、3:半右轉、4:全左轉、5:全右轉
         """
         control = carla.VehicleControl()
-        control.throttle = 0.4
+        control.throttle = 0.5
         control.brake = 0
         if (action == 0):
             control.steer = 0.0
