@@ -8,8 +8,6 @@ if gpus:
     for gpu in gpus:
       tf.config.experimental.set_memory_growth(gpu, True)
 
-from tensorflow.compat.v1 import ConfigProto
-from tensorflow.compat.v1 import InteractiveSession
 
 
 class ActorNetwork(keras.Model):

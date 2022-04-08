@@ -11,7 +11,7 @@ class main:
 
         self.ActorCritic = Actor_Critic(n_actions=6)
         self.MIN_SPEED = 1
-        self.MAX_SPEED = 30
+        self.MAX_SPEED = 20
         self.EPISODES = 10000
 
         self.train()
@@ -45,14 +45,14 @@ class main:
                     reward,done = self.compute_reward()
 
                     next_bgr_frame, next_seg_frame = self.get_image()
-    
+
                     self.ActorCritic.learn_critic(seg_frame/255, reward, next_seg_frame/255, done)
                     self.ActorCritic.learn_actor(seg_frame/255, action)
 
                 self.CarlaApi.reset()
         finally:
             self.CarlaApi.destroy()
-            print('destroy')
+            print('Destroy actor')
         
     """計算獎勵"""
     def compute_reward(self):
@@ -66,23 +66,20 @@ class main:
         done = False
 
         if(self.MIN_SPEED <= car_speed <= self.MAX_SPEED):
-            speed_reward = 1.5 * (car_speed - self.MIN_SPEED)
+            speed_reward = 0.8 * (car_speed - self.MIN_SPEED)
         elif (car_speed < self.MIN_SPEED):
-            speed_reward = 1.5 * (car_speed - self.MIN_SPEED)
+            speed_reward = 3 * (car_speed - self.MIN_SPEED)
         elif (car_speed > self.MAX_SPEED):
-            speed_reward = 1.5 * (self.MAX_SPEED - car_speed)
+            speed_reward = 2 * (self.MAX_SPEED - car_speed)
+
 
         reward += speed_reward
 
         if lane_line_info or collision_info:
             done = True
-            reward = -20
+            reward = -35
 
-        # if(sensor_data['restart_flag']):
-        #     reward = -10
-        #     done = True
-
-        print('reward:',reward)
+        # print('reward:',reward)
 
         return reward, done
 
@@ -93,7 +90,7 @@ class main:
                 0:前進、1:煞車、2:半左轉、3:半右轉、4:全左轉、5:全右轉
         """
         control = carla.VehicleControl()
-        control.throttle = 0.5
+        control.throttle = 0.45
         control.brake = 0
         if (action == 0):
             control.steer = 0.0

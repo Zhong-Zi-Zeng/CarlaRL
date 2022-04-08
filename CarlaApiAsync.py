@@ -2,6 +2,7 @@ import carla
 import numpy as np
 from queue import Queue
 from collections import deque
+import time
 
 
 
@@ -21,14 +22,12 @@ def process_seg_frame(seg_frame):
 
     return seg_frame
 
-
 class CarlaApi:
     def __init__(self):
         self.world = None
         self.blueprint_library = None
         self.vehicle = None
         self.vehicle_transform = None
-        self.callback_id = None
         self.block = False
         self.frame = 0
 
@@ -36,8 +35,8 @@ class CarlaApi:
         self.camera_list = []
         self.sensor_queue_list = []
         self.camera_queue_list = []
-        self.sensor_info_queue = deque()
-        self.camera_info_queue = deque()
+        self.sensor_info_queue = deque(maxlen=5)
+        self.camera_info_queue = deque(maxlen=5)
 
     """連接到模擬環境"""
     def connect_to_world(self):
@@ -66,14 +65,15 @@ class CarlaApi:
 
     """感測器回調函式"""
     def _sensor_callback(self):
-        sensor_info = {sensor_name : self.pop_queue(sensor_queue) \
-                       for sensor_queue, sensor_name in self.sensor_queue_list}
-
         if not self.block:
+            sensor_info = {sensor_name: self.pop_queue(sensor_queue) \
+                           for sensor_queue, sensor_name in self.sensor_queue_list}
+
             self.sensor_info_queue.append(sensor_info)
 
-        if sensor_info['lane_line_sensor'] or sensor_info['collision_sensor']:
-            self.block = True
+            if sensor_info['lane_line_sensor'] or sensor_info['collision_sensor']:
+                self._spawn_vehicle()
+                self.block = True
 
     """等待模擬開始"""
     def wait_for_sim(self):
@@ -126,23 +126,25 @@ class CarlaApi:
     """建立佇列"""
     def _build_queue(self):
         for sensor, sensor_name in self.sensor_list:
-            Q = deque()
+            Q = deque(maxlen=5)
             sensor.listen(Q.append)
             self.sensor_queue_list.append([Q,sensor_name])
 
         for camera, camera_name in self.camera_list:
-            Q = deque()
+            Q = deque(maxlen=5)
             camera.listen(Q.append)
             self.camera_queue_list.append([Q,camera_name])
 
     """清空佇列"""
     def _clear_queue(self):
         self.sensor_info_queue.clear()
-        for sensor_queue, sensor_name in self.sensor_queue_list:
-            sensor_queue.clear()
+        self.camera_info_queue.clear()
 
         for camera_queue, camera_name in self.camera_queue_list:
             camera_queue.clear()
+
+        for sensor_queue, sensor_name in self.sensor_queue_list:
+            sensor_queue.clear()
 
     """銷毀生成物件"""
     def destroy(self):
@@ -157,7 +159,7 @@ class CarlaApi:
         self._spawn_sensor()
         self._spawn_camera()
         self._build_queue()
-        self.callback_id = self.world.on_tick(self._callback)
+        self.world.on_tick(self._callback)
 
     """重置"""
     def reset(self):
@@ -165,10 +167,10 @@ class CarlaApi:
         velocity.x = 0.0
         velocity.y = 0.0
         velocity.z = 0.0
-        self.block = False
         self.vehicle.set_target_velocity(velocity)
-        self._spawn_vehicle()
+        self.block = False
         self._clear_queue()
+
     """控制車子"""
     def control_vehicle(self,control):
         if isinstance(control,carla.VehicleControl):
@@ -188,7 +190,6 @@ class CarlaApi:
             except:
                 continue
 
-
     """返回感測器數據"""
     def sensor_data(self):
         while True:
@@ -203,4 +204,3 @@ class CarlaApi:
                 return sensor_info
             except:
                 continue
-
