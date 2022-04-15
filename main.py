@@ -1,5 +1,5 @@
 from CarlaApiAsync import CarlaApi
-from Actor_Critic import Actor_Critic
+from Actor_CriticV2 import Actor_Critic
 import carla
 import cv2
 import numpy as np
@@ -90,8 +90,7 @@ class main:
                     next_bgr_frame, next_seg_frame = self.get_image()
                     next_seg_frame = process_seg_frame(next_seg_frame)
 
-                    self.ActorCritic.learn_critic(seg_frame/255, reward, next_seg_frame/255, done)
-                    self.ActorCritic.learn_actor(seg_frame/255, action)
+                    self.ActorCritic.learn(seg_frame/255, action, reward, next_seg_frame/255, done)
 
                 if total_reward > old_total_reward:
                     old_total_reward = total_reward
@@ -114,7 +113,7 @@ class main:
         done = False
 
         if(self.MIN_SPEED <= car_speed <= self.MAX_SPEED):
-            speed_reward = 2 * (car_speed - self.MIN_SPEED)
+            speed_reward = 1.5 * (car_speed - self.MIN_SPEED)
         elif (car_speed < self.MIN_SPEED):
             speed_reward = 1.3 * (car_speed - self.MIN_SPEED)
         elif (car_speed > self.MAX_SPEED):
@@ -124,7 +123,7 @@ class main:
 
         if lane_line_info or collision_info:
             done = True
-            reward = -10
+            reward = -100
 
         print('reward:',reward)
 

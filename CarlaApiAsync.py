@@ -85,6 +85,7 @@ class CarlaApi:
         if(self.vehicle_transform is not None):
             # self.vehicle_transform = np.random.choice(self.world.get_map().get_spawn_points())
             self.vehicle.set_transform(self.vehicle_transform)
+            time.sleep(2)
         else:
             self.vehicle_transform = np.random.choice(self.world.get_map().get_spawn_points())
             self.vehicle = self.world.spawn_actor(vehicle_bp, self.vehicle_transform)
