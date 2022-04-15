@@ -9,7 +9,6 @@ if gpus:
       tf.config.experimental.set_memory_growth(gpu, True)
 
 
-
 class ActorNetwork(keras.Model):
     def __init__(self, n_actions):
         super().__init__()
@@ -31,8 +30,8 @@ class ActorNetwork(keras.Model):
 
         self.la13 = BatchNormalization()
         self.la14 = Flatten()
-        self.la15 = Dense(128, activation='relu')
-        self.la16 = Dense(64, activation='relu')
+        self.la15 = Dense(512, activation='tanh')
+        self.la16 = Dense(64, activation='tanh')
         self.pi = Dense(n_actions, activation='softmax')
 
     def call(self, state):

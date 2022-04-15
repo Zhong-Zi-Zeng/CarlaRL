@@ -83,6 +83,7 @@ class CarlaApi:
     def _spawn_vehicle(self):
         vehicle_bp = self.blueprint_library.filter('vehicle')[0]
         if(self.vehicle_transform is not None):
+            # self.vehicle_transform = np.random.choice(self.world.get_map().get_spawn_points())
             self.vehicle.set_transform(self.vehicle_transform)
         else:
             self.vehicle_transform = np.random.choice(self.world.get_map().get_spawn_points())
@@ -163,10 +164,7 @@ class CarlaApi:
 
     """重置"""
     def reset(self):
-        velocity = carla.Vector3D()
-        velocity.x = 0.0
-        velocity.y = 0.0
-        velocity.z = 0.0
+        velocity = carla.Vector3D(x=0.0,y=0.0,z=0.0)
         self.vehicle.set_target_velocity(velocity)
         self.block = False
         self._clear_queue()
@@ -194,9 +192,11 @@ class CarlaApi:
     def sensor_data(self):
         while True:
             try:
+                # 交通號誌訊息
                 sensor_info = self.sensor_info_queue.pop()
                 sensor_info['traffic_info'] = self.vehicle.get_traffic_light_state()
 
+                # 車輛速度
                 car_speed = self.vehicle.get_velocity()
                 car_speed = np.sqrt(car_speed.x ** 2 + car_speed.y ** 2 + car_speed.z ** 2) * 3.6
                 sensor_info['car_speed'] = car_speed
