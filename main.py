@@ -1,9 +1,12 @@
 from CarlaApiAsync import CarlaApi
-from Actor_CriticV2 import Actor_Critic
+# from Actor_CriticV2 import Actor_Critic
+from DQN import Agent
 import carla
 import cv2
 import numpy as np
 import copy
+import time
+
 
 def process_seg_frame(seg_frame):
     seg_frame_cp = copy.deepcopy(seg_frame)
@@ -32,7 +35,8 @@ def process_seg_frame(seg_frame):
         '21': (150, 60, 45),  # 水
         '22': (100, 170, 145)  # 地形
     }
-    not_important = [2, 3, 5, 12, 13, 15, 16, 17, 18, 19, 21, 22]
+    # not_important = [2, 3, 5, 12, 13, 15, 16, 17, 18, 19, 21, 22]
+    not_important = [1, 2, 3, 5, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]
     seg_frame_height = seg_frame.shape[0]
     seg_frame_width = seg_frame.shape[1]
     for item in AllClass.items():
@@ -47,13 +51,23 @@ def process_seg_frame(seg_frame):
 
 class main:
     def __init__(self):
-        self.CarlaApi = CarlaApi()
+        self.CarlaApi = CarlaApi(img_width=100,img_height=100)
 
-        self.ActorCritic = Actor_Critic(n_actions=6)
-        self.MIN_SPEED = 2
+        self.DQN = Agent(lr=0.0003,
+                         gamma=0.99,
+                         n_actions=6,
+                         epsilon=0.3,
+                         batch_size=8,
+                         epsilon_end=0.1,
+                         mem_size=1000,
+                         epsilon_dec=0.95,
+                         img_width=100,
+                         img_height=100,
+                         iteration=200,
+                         fixed_q=True)
+        self.MIN_SPEED = 4
         self.MAX_SPEED = 20
         self.EPISODES = 10000
-
         self.train()
 
     def get_image(self):
@@ -73,30 +87,38 @@ class main:
                 print('Episode:%d'%(i))
                 total_reward = 0
                 while not done:
+                    # St時刻的影像
                     bgr_frame, seg_frame = self.get_image()
                     seg_frame = process_seg_frame(seg_frame)
 
+                    # 顯示影像
                     show_frame = np.hstack((seg_frame, bgr_frame))
                     cv2.imshow("", show_frame)
                     if cv2.waitKey(1) == ord('q'):
                         exit()
 
-                    action = self.ActorCritic.choose_action(seg_frame/255)
+                    # 選取動作
+                    action = self.DQN.choose_action(seg_frame / 255)
                     self.control_car(action)
 
+                    # 計算獎勵
                     reward,done = self.compute_reward()
                     total_reward += reward
 
+                    # St+1時刻的影像
                     next_bgr_frame, next_seg_frame = self.get_image()
                     next_seg_frame = process_seg_frame(next_seg_frame)
 
-                    self.ActorCritic.learn(seg_frame/255, action, reward, next_seg_frame/255, done)
+                    # 訓練網路
+                    self.DQN.remember(seg_frame/255, action, reward, next_seg_frame/255, done)
+                    self.DQN.learn()
 
                 if total_reward > old_total_reward:
                     old_total_reward = total_reward
-                    self.ActorCritic.save_model()
+                    self.DQN.save_model()
 
                 self.CarlaApi.reset()
+                # time.sleep(2)
         finally:
             self.CarlaApi.destroy()
             print('Destroy actor')
@@ -107,23 +129,28 @@ class main:
         lane_line_info = sensor_data['lane_line_sensor']
         collision_info = sensor_data['collision_sensor']
         traffic_info = sensor_data['traffic_info']
+        dis_info = sensor_data['finish_point_dis']
         car_speed = sensor_data['car_speed']
 
-        reward = 0
+        speed_reward = 0
         done = False
 
+        # 速度獎勵
         if(self.MIN_SPEED <= car_speed <= self.MAX_SPEED):
             speed_reward = 1.5 * (car_speed - self.MIN_SPEED)
         elif (car_speed < self.MIN_SPEED):
-            speed_reward = 1.3 * (car_speed - self.MIN_SPEED)
+            speed_reward = 10 * (car_speed - self.MIN_SPEED)
         elif (car_speed > self.MAX_SPEED):
             speed_reward = 1 * (self.MAX_SPEED - car_speed)
 
-        reward += speed_reward
+        # 與目標的距離獎勵
+        dis_reward = np.exp(1 / dis_info) * 10 - 10
+
+        reward = dis_reward
 
         if lane_line_info or collision_info:
             done = True
-            reward = -100
+            reward = -50
 
         print('reward:',reward)
 
@@ -136,7 +163,7 @@ class main:
                 0:前進、1:煞車、2:半左轉、3:半右轉、4:全左轉、5:全右轉
         """
         control = carla.VehicleControl()
-        control.throttle = 0.5
+        control.throttle = 0.4
         control.brake = 0
         if (action == 0):
             control.steer = 0.0

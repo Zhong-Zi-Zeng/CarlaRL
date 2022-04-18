@@ -1,6 +1,6 @@
 import tensorflow
 import tensorflow.keras as keras
-from tensorflow.keras.layers import Dense,Conv2D,Flatten,MaxPooling2D,BatchNormalization
+from tensorflow.keras.layers import Dense,Conv2D,Flatten,MaxPooling2D,BatchNormalization,GlobalMaxPooling2D
 import tensorflow as tf
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -13,10 +13,10 @@ class ActorCriticNetwork(keras.Model):
     def __init__(self, n_actions):
         super().__init__()
 
-        # self.la1 = BatchNormalization()
-        # self.la2 = Conv2D(8, (3, 3), padding='same', activation='relu')
-        # self.la3 = Conv2D(8, (3, 3), padding='same', activation='relu')
-        # self.la4 = MaxPooling2D((2,2))
+        self.la1 = BatchNormalization()
+        self.la2 = Conv2D(8, (3, 3), padding='same', activation='relu')
+        self.la3 = Conv2D(8, (3, 3), padding='same', activation='relu')
+        self.la4 = MaxPooling2D((2,2))
 
         self.la5 = BatchNormalization()
         self.la6 = Conv2D(16, (3, 3), padding='same', activation='relu')
@@ -30,6 +30,7 @@ class ActorCriticNetwork(keras.Model):
 
         self.la13 = BatchNormalization()
         self.la14 = Flatten()
+
         self.la15_1 = Dense(128, activation='tanh')
         self.la16_1 = Dense(64, activation='tanh')
         self.la15_2 = Dense(128, activation='relu')
@@ -39,10 +40,10 @@ class ActorCriticNetwork(keras.Model):
         self.v = Dense(1, activation=None)
 
     def call(self, state):
-        # output = self.la1(state)
-        # output = self.la2(output)
-        # output = self.la3(output)
-        # output = self.la4(output)
+        output = self.la1(state)
+        output = self.la2(output)
+        output = self.la3(output)
+        output = self.la4(output)
         output = self.la5(state)
         output = self.la6(output)
         output = self.la7(output)

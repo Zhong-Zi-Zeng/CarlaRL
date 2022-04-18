@@ -5,7 +5,6 @@ from collections import deque
 import time
 
 
-
 def process_bgr_frame(bgr_frame):
     bgr_frame.convert(carla.ColorConverter.Raw)
     array = np.frombuffer(bgr_frame.raw_data, dtype=np.uint8)
@@ -23,12 +22,14 @@ def process_seg_frame(seg_frame):
     return seg_frame
 
 class CarlaApi:
-    def __init__(self):
+    def __init__(self,img_width,img_height):
         self.world = None
         self.blueprint_library = None
         self.vehicle = None
         self.vehicle_transform = None
         self.block = False
+        self.img_width = img_width
+        self.img_height = img_height
         self.frame = 0
 
         self.sensor_list = []
@@ -85,7 +86,6 @@ class CarlaApi:
         if(self.vehicle_transform is not None):
             # self.vehicle_transform = np.random.choice(self.world.get_map().get_spawn_points())
             self.vehicle.set_transform(self.vehicle_transform)
-            time.sleep(2)
         else:
             self.vehicle_transform = np.random.choice(self.world.get_map().get_spawn_points())
             self.vehicle = self.world.spawn_actor(vehicle_bp, self.vehicle_transform)
@@ -95,8 +95,8 @@ class CarlaApi:
     def _spawn_camera(self):
         """產生bgr攝影機到車上"""
         bgr_camera_bp = self.blueprint_library.find('sensor.camera.rgb')
-        bgr_camera_bp.set_attribute('image_size_x', '100')
-        bgr_camera_bp.set_attribute('image_size_y', '100')
+        bgr_camera_bp.set_attribute('image_size_x', str(self.img_width))
+        bgr_camera_bp.set_attribute('image_size_y', str(self.img_height))
         bgr_camera_transform = carla.Transform(carla.Location(x=1.5, z=2.4))
         bgr_camera = self.world.spawn_actor(bgr_camera_bp, bgr_camera_transform, attach_to=self.vehicle)
 
@@ -104,8 +104,8 @@ class CarlaApi:
 
         """產生SEG攝影機到車上"""
         seg_camera_bp = self.blueprint_library.find('sensor.camera.semantic_segmentation')
-        seg_camera_bp.set_attribute('image_size_x', '100')
-        seg_camera_bp.set_attribute('image_size_y', '100')
+        seg_camera_bp.set_attribute('image_size_x', str(self.img_width))
+        seg_camera_bp.set_attribute('image_size_y', str(self.img_height))
         seg_camera_transform = carla.Transform(carla.Location(x=1.5, z=2.4))
         seg_camera = self.world.spawn_actor(seg_camera_bp, seg_camera_transform, attach_to=self.vehicle)
 
@@ -160,6 +160,7 @@ class CarlaApi:
         self._spawn_vehicle()
         self._spawn_sensor()
         self._spawn_camera()
+        self._spawn_finish_point()
         self._build_queue()
         self.world.on_tick(self._callback)
 
@@ -168,6 +169,7 @@ class CarlaApi:
         velocity = carla.Vector3D(x=0.0,y=0.0,z=0.0)
         self.vehicle.set_target_velocity(velocity)
         self.block = False
+        self._spawn_finish_point()
         self._clear_queue()
 
     """控制車子"""
@@ -176,6 +178,11 @@ class CarlaApi:
             self.vehicle.apply_control(control)
         else:
             print('The parameter "control" must be carla.VehicleControl object.')
+
+    """取得道路中心點座標"""
+    def _spawn_finish_point(self):
+        self.way_point = self.world.get_map().get_waypoint(self.vehicle_transform.location)
+        self.way_point = self.way_point.next(20)
 
     """返回攝影機數據"""
     def camera_data(self):
@@ -201,6 +208,15 @@ class CarlaApi:
                 car_speed = self.vehicle.get_velocity()
                 car_speed = np.sqrt(car_speed.x ** 2 + car_speed.y ** 2 + car_speed.z ** 2) * 3.6
                 sensor_info['car_speed'] = car_speed
+
+                # 與目標點距離
+                car_location = self.vehicle.get_location()
+                target_location = self.way_point[0].transform.location
+                sensor_info['finish_point_dis'] = np.sqrt((car_location.x - target_location.x) ** 2 +
+                                                          (car_location.y - target_location.y) ** 2 +
+                                                          (car_location.z - target_location.z) ** 2)
+                if(sensor_info['finish_point_dis'] < 3):
+                    self.way_point = self.way_point.next(20)
 
                 return sensor_info
             except:
