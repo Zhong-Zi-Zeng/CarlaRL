@@ -72,8 +72,7 @@ class CarlaApi:
 
             self.sensor_info_queue.append(sensor_info)
 
-            if sensor_info['lane_line_sensor'] or sensor_info['collision_sensor']:
-                self._spawn_vehicle()
+            if sensor_info['collision_sensor']:
                 self.block = True
 
     """等待模擬開始"""
@@ -167,8 +166,11 @@ class CarlaApi:
     """重置"""
     def reset(self):
         velocity = carla.Vector3D(x=0.0,y=0.0,z=0.0)
+        control = carla.VehicleControl(throttle=0.0,steer=0.0,brake=0)
+        self.control_vehicle(control)
         self.vehicle.set_target_velocity(velocity)
         self.block = False
+        self._spawn_vehicle()
         self._spawn_finish_point()
         self._clear_queue()
 
@@ -182,7 +184,7 @@ class CarlaApi:
     """取得道路中心點座標"""
     def _spawn_finish_point(self):
         self.way_point = self.world.get_map().get_waypoint(self.vehicle_transform.location)
-        self.way_point = self.way_point.next(20)
+        self.way_point = self.way_point.next(1)
 
     """返回攝影機數據"""
     def camera_data(self):
@@ -195,6 +197,8 @@ class CarlaApi:
                 return camera_info
             except:
                 continue
+
+
 
     """返回感測器數據"""
     def sensor_data(self):
@@ -215,8 +219,8 @@ class CarlaApi:
                 sensor_info['finish_point_dis'] = np.sqrt((car_location.x - target_location.x) ** 2 +
                                                           (car_location.y - target_location.y) ** 2 +
                                                           (car_location.z - target_location.z) ** 2)
-                if(sensor_info['finish_point_dis'] < 3):
-                    self.way_point = self.way_point.next(20)
+                if(sensor_info['finish_point_dis'] < 0.2):
+                    self.way_point = self.way_point.next(1)
 
                 return sensor_info
             except:
