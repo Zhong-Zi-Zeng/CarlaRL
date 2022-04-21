@@ -51,7 +51,7 @@ def process_seg_frame(seg_frame):
 
 class main:
     def __init__(self):
-        self.CarlaApi = CarlaApi(img_width=100,img_height=100)
+        self.CarlaApi = CarlaApi(img_width=150,img_height=150)
         self.DQN = Agent(lr=0.0003,
                          gamma=0.99,
                          n_actions=6,
@@ -60,8 +60,8 @@ class main:
                          epsilon_end=0.1,
                          mem_size=3000,
                          epsilon_dec=0.95,
-                         img_width=100,
-                         img_height=100,
+                         img_width=150,
+                         img_height=150,
                          iteration=200,
                          fixed_q=True)
         # 期望時速
@@ -122,7 +122,7 @@ class main:
                     self.DQN.save_model()
 
                 self.CarlaApi.reset()
-                time.sleep(0.5)
+                # time.sleep(0.5)
         finally:
             self.CarlaApi.destroy()
             cv2.destroyAllWindows()

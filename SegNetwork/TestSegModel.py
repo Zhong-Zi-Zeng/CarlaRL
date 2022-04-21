@@ -12,7 +12,7 @@ if gpus:
       tf.config.experimental.set_memory_growth(gpu, True)
 
 # 測試圖片位置
-test_img_path = './test'
+test_img_path = './test_img'
 
 # 感興趣的類別
 InterestClass = {
@@ -32,27 +32,28 @@ DecodeNetwork = DecodeNetwork(cls_num=CLASS_NUM)
 SegModel = Sequential()
 SegModel.add(EncodeNetwork)
 SegModel.add(DecodeNetwork)
-SegModel.load_weights('')
+
+SegModel.build(input_shape=(1,300,400,3))
+SegModel.summary()
+SegModel.load_weights("./ep015-loss0.013-val_acc0.976.h5")
 
 
 for img_name in os.listdir(test_img_path):
     test_img = cv2.imread(test_img_path + '/' + img_name)
+    show_img = np.zeros_like(test_img,dtype=np.uint8)
+
     test_img = test_img[np.newaxis,:]
-    output = SegModel.predict(test_img/255)
+    output = SegModel.predict(test_img/255)[0]
 
     output_height = output.shape[0]
     output_width = output.shape[1]
     hot_code = np.argmax(output, axis=2)
-    show_img = np.zeros_like(test_img)
 
-    for label in InterestClass.keys():
-        matrix = np.where(hot_code[:,:] == label,np.ones((output_height, output_width)),
-                              np.zeros((output_height, output_width)))
+    for label in range(CLASS_NUM):
+        matrix = np.where((hot_code[:,:] == label),np.ones((output_height, output_width)),np.zeros((output_height, output_width)))
+        show_img[matrix > 0] = InterestClass[str(label)]
 
-        show_img[matrix == 1] = InterestClass[str(label)]
-
-    result = np.vstack((show_img,test_img))
-    cv2.imshow('',result)
+    cv2.imshow('',show_img)
     cv2.waitKey(0)
 
 
