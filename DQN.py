@@ -150,7 +150,7 @@ class Agent():
         if(self.fixed_q):
             # 新神經網路預測的Q值
             q_eval = self.q_eval.predict(state)
-            # 舊神經網路預測的Q值
+            # 舊神經網路預測的Q值ㄆ
             q_target_pre = self.q_target_net.predict(next_state)
 
             q_target = q_eval.copy()

@@ -1,8 +1,5 @@
-from SegDecodeNetwork import DecodeNetwork
-from SegEncodeNetwork import EncodeNetwork
-from tensorflow.keras.models import *
+from SegNetwork import SegNetwork
 from tensorflow.keras.callbacks import *
-from tensorflow.keras.optimizers import *
 import tensorflow as tf
 import numpy as np
 import cv2
@@ -132,15 +129,9 @@ early_stopping = EarlyStopping(
                                 verbose=2
                             )
 
-EncodeNetwork = EncodeNetwork()
-DecodeNetwork = DecodeNetwork(cls_num=CLASS_NUM)
-SegModel = Sequential()
-SegModel.add(EncodeNetwork)
-SegModel.add(DecodeNetwork)
 
-SegModel.build(input_shape=(1,300,400,3))
-SegModel.summary()
-SegModel.compile(optimizer=Adam(learning_rate=LR),loss='categorical_crossentropy',metrics=['acc'])
+SegModel = SegNetwork(cls_num=CLASS_NUM,LR=LR)
+SegModel = SegModel.getModel()
 
 SegModel.fit(generate(ori_img_name[:NUM_TRAINS],batch_size=BATCH_SIZE),
             steps_per_epoch=max(1, NUM_TRAINS // BATCH_SIZE),
