@@ -44,7 +44,7 @@ class ActorCriticNetwork(keras.Model):
         output = self.la2(output)
         output = self.la3(output)
         output = self.la4(output)
-        output = self.la5(state)
+        output = self.la5(output)
         output = self.la6(output)
         output = self.la7(output)
         output = self.la8(output)

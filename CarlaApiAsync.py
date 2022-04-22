@@ -80,15 +80,15 @@ class CarlaApi:
         self.world.wait_for_tick()
 
     """產生車輛"""
-    def _spawn_vehicle(self):
+    def _spawn_vehicle(self,AutoMode):
         vehicle_bp = self.blueprint_library.filter('vehicle')[0]
         if(self.vehicle_transform is not None):
-            # self.vehicle_transform = np.random.choice(self.world.get_map().get_spawn_points())
             self.vehicle.set_transform(self.vehicle_transform)
         else:
             self.vehicle_transform = np.random.choice(self.world.get_map().get_spawn_points())
             self.vehicle = self.world.spawn_actor(vehicle_bp, self.vehicle_transform)
-        self.vehicle.set_autopilot(False)
+
+        self.vehicle.set_autopilot(AutoMode)
 
     """產生攝影機"""
     def _spawn_camera(self):
@@ -154,9 +154,9 @@ class CarlaApi:
             actor[0].destroy()
 
     """初始化"""
-    def initial(self):
+    def initial(self,AutoMode=False):
         self.connect_to_world()
-        self._spawn_vehicle()
+        self._spawn_vehicle(AutoMode)
         self._spawn_sensor()
         self._spawn_camera()
         self._spawn_finish_point()

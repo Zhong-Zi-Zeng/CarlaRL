@@ -11,14 +11,15 @@ if gpus:
       tf.config.experimental.set_memory_growth(gpu, True)
 
 
+
+
+
 class SegNetwork:
-    def __init__(self,cls_num,LR=0.001):
+    def __init__(self,cls_num=7,LR=0.001):
         self.cls_num = cls_num
         self.seg = Sequential()
         self.seg.add(EncodeNetwork())
         self.seg.add(DecodeNetwork(cls_num=self.cls_num))
-
-
         self.seg.build(input_shape=(1,300,400,3))
         self.seg.summary()
         self.seg.compile(optimizer=Adam(learning_rate=LR), loss='categorical_crossentropy', metrics=['acc'])
@@ -28,6 +29,7 @@ class SegNetwork:
 
     def loadWeights(self,h5_file):
         self.seg.load_weights(h5_file)
+        return self.seg
 
     def predict(self,input):
         input = input[np.newaxis,:]
@@ -42,6 +44,7 @@ class SegNetwork:
             '3': (128, 64, 128),  # 馬路
             '4': (232, 35, 244),  # 人行道
             '5': (142, 0, 0),  # 汽車
+            '6': (30, 170, 250)  # 紅綠燈
         }
         result_img = np.zeros((300,400,3), dtype=np.uint8)
         hot_code = np.argmax(output, axis=2)
