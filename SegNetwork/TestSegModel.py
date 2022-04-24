@@ -7,7 +7,7 @@ import os
 test_img_path = './test_img'
 
 SegModel = SegNetwork(cls_num=6)
-SegModel.loadWeights("./ep015-loss0.013-val_acc0.976.h5")
+SegModel.loadWeights("./weights/ep015-loss0.017-val_acc0.945.h5")
 
 for img_name in os.listdir(test_img_path):
     test_img = cv2.imread(test_img_path + '/' + img_name)
