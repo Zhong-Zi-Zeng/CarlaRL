@@ -5,22 +5,13 @@ from tensorflow.keras.models import *
 import os
 
 
-class Network(Model):
+class Network:
     def __init__(self):
-        super().__init__()
         # 原本的SegNetwork網路的權重位置
         self.SegNetworkWeights = "./weights/ep015-loss0.017-val_acc0.945.h5"
         self.EncodeNetwork = EncodeNetwork()
         self.SetEncodeNetworkWeights()
 
-        self.fl_la = Flatten()
-        self.h1 = Dense(32,activation='relu')
-        self.h2 = Dense(16,activation='relu')
-
-        self.TL = Dense(1,activation='relu')
-        # self.yaw_angel = Dense(1,activation=None)
-        # self.la_diff = Dense(1,activation=None)
-        self.Intersection = Dense(1,activation=None)
 
     def SetEncodeNetworkWeights(self):
         self.EncodeNetwork.build(input_shape=(1, 300, 400, 3))
@@ -36,15 +27,23 @@ class Network(Model):
             self.EncodeNetwork.set_weights(EncodeNetwork.get_weights())
             self.EncodeNetwork.save_weights('./weights/EncodeNetWorkWeights.h5')
 
-    def call(self,inputs):
-        output = self.EncodeNetwork(inputs)
-        output = self.fl_la(output)
-        output = self.h1(output)
-        output = self.h2(output)
+    def EncodeOutput(self,img):
+        return self.EncodeNetwork.predict(img/255)[0]
 
-        TL_output = self.TL(output)
-        # yaw_angle_output = self.yaw_angel(output)
-        # la_diff_output = self.la_diff(output)
-        Intersection_output = self.Intersection(output)
 
-        return TL_output, Intersection_output
+    def buildModel(self):
+        inputs = Input(shape=(75, 100, 64))
+        output = GlobalMaxPooling2D()(inputs)
+
+        output_1 = Dense(1024, activation='relu')(output)
+        output_1 = Dense(512, activation='relu')(output_1)
+
+        output_2 = Dense(1024, activation='relu')(output)
+        output_2 = Dense(512, activation='relu')(output_2)
+
+        TL = Dense(1, activation='sigmoid', name='TL')(output_1)
+        Junction = Dense(1, activation='sigmoid', name='Junction')(output_2)
+        model = Model(inputs=inputs, outputs=[TL, Junction])
+
+        return model
+

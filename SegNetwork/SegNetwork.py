@@ -12,8 +12,6 @@ if gpus:
 
 
 
-
-
 class SegNetwork:
     def __init__(self,cls_num=7,LR=0.001):
         self.cls_num = cls_num

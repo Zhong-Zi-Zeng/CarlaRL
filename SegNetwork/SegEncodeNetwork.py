@@ -29,11 +29,12 @@ class BlockLayer(Model):
 
         return output
 
-"""
-    Input Shape = (1,300,400,3)
-    Output Shape = (1,75,100,64)
-"""
+
 class EncodeNetwork(Model):
+    """
+        Input Shape = (1,300,400,3)
+        Output Shape = (75,100,64)
+    """
     def __init__(self):
         super().__init__()
         self.filters_list = [8,16,32,64]
