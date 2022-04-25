@@ -16,6 +16,7 @@ if gpus:
 # 載入訓練數據
 x_train_path = './data'
 x_train_name = os.listdir(x_train_path)
+np.random.shuffle(x_train_name)
 
 # 訓練集與驗證集比例
 RATIO = 0.7
@@ -28,13 +29,13 @@ BATCH_SIZE = 8
 LR = 0.001
 
 # 生成模型
-model = Network().buildModel()
-model.summary()
+EncodeAndFlattenNetwork = Network().buildModel()
+EncodeAndFlattenNetwork.model.summary()
 
 losses = {'TL': 'binary_crossentropy',
           'Junction': 'binary_crossentropy'}
 
-model.compile(optimizer=RMSprop(learning_rate=LR), loss=losses, metrics=['acc'])
+EncodeAndFlattenNetwork.model.compile(optimizer=RMSprop(learning_rate=LR), loss=losses, metrics=['acc'])
 
 
 def generate(data,batch_size=5):
@@ -51,15 +52,16 @@ def generate(data,batch_size=5):
             # X_train圖片處理
             ori_img = cv2.imread(x_train_path + '/' + img_name)
             ori_img = ori_img[np.newaxis,:]
-            encode_output = Network().EncodeOutput(ori_img)
+            print(img_name)
+            encode_output = EncodeAndFlattenNetwork.EncodeOutput(ori_img)
             X_train.append(encode_output)
 
             # Label 處理
             label = readSpeficyRow(img_name.strip('.png'))
             TL_label.append(label[0])
             Injunction_label.append(label[1])
+            i = (i + 1) % n
 
-        i = (i + 1) % n
         yield (np.array(X_train), [np.array(TL_label), np.array(Injunction_label)])
 
 
@@ -91,7 +93,7 @@ early_stopping = EarlyStopping(
                             )
 
 
-model.fit(generate(x_train_name[:NUM_TRAINS],batch_size=BATCH_SIZE),
+EncodeAndFlattenNetwork.model.fit(generate(x_train_name[:NUM_TRAINS],batch_size=BATCH_SIZE),
             steps_per_epoch=max(1, NUM_TRAINS // BATCH_SIZE),
             validation_data=generate(x_train_name[NUM_TRAINS:], batch_size=BATCH_SIZE),
             epochs=20,

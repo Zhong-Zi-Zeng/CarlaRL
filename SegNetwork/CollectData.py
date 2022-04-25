@@ -28,7 +28,7 @@ actor_list.append(vehicle)
 
 
 # ============相機============
-count = 0
+count = 2220
 
 def process_rgb_image(img):
     global count
@@ -40,6 +40,7 @@ def process_rgb_image(img):
             waypoint = getLaneWaypoint()
             junction = '1' if waypoint.is_junction else '0'
             tl = '1' if str(vehicle.get_traffic_light_state()) == 'Green' else '0'
+            print('Write to txt file:',count)
             file.writelines(str(count) + ' ' + junction + ' ' + tl + '\n')
 
         img.save_to_disk('./data/%d.png'%(count))
