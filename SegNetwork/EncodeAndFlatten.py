@@ -12,6 +12,7 @@ class Network:
         self.EncodeNetwork = EncodeNetwork()
         self.SetEncodeNetworkWeights()
 
+        self.model = None
 
     def SetEncodeNetworkWeights(self):
         self.EncodeNetwork.build(input_shape=(1, 300, 400, 3))
@@ -30,7 +31,6 @@ class Network:
     def EncodeOutput(self,img):
         return self.EncodeNetwork.predict(img/255)[0]
 
-
     def buildModel(self):
         inputs = Input(shape=(75, 100, 64))
         output = GlobalMaxPooling2D()(inputs)
@@ -43,7 +43,7 @@ class Network:
 
         TL = Dense(1, activation='sigmoid', name='TL')(output_1)
         Junction = Dense(1, activation='sigmoid', name='Junction')(output_2)
-        model = Model(inputs=inputs, outputs=[TL, Junction])
+        self.model = Model(inputs=inputs, outputs=[TL, Junction])
 
-        return model
+        return self
 

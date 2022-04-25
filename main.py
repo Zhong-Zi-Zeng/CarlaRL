@@ -1,4 +1,5 @@
 from CarlaApiAsync import CarlaApi
+from SegNetwork.EncodeAndFlatten import Network
 from DQN import Agent
 import matplotlib.pyplot as plt
 import carla
@@ -51,7 +52,7 @@ def process_seg_frame(seg_frame):
 
 class main:
     def __init__(self):
-        self.CarlaApi = CarlaApi(img_width=150,img_height=150)
+        self.CarlaApi = CarlaApi(img_width=400,img_height=300)
         self.DQN = Agent(lr=0.0003,
                          gamma=0.99,
                          n_actions=6,
@@ -60,8 +61,8 @@ class main:
                          epsilon_end=0.1,
                          mem_size=3000,
                          epsilon_dec=0.95,
-                         img_width=150,
-                         img_height=150,
+                         img_width=400,
+                         img_height=300,
                          iteration=200,
                          fixed_q=True)
         # 期望時速
@@ -70,6 +71,8 @@ class main:
         self.MAX_MIDDLE_DIS = 2
 
         self.EPISODES = 10000
+        self.EncodeAndFlattenNetwork = Network().buildModel()
+
         self.train()
 
     def get_image(self):
@@ -91,17 +94,23 @@ class main:
                 total_reward = 0
                 while not done:
                     # St時刻的影像
-                    bgr_frame, seg_frame = self.get_image()
-                    seg_frame = process_seg_frame(seg_frame)
+                    bgr_frame, _ = self.get_image()
+
+                    encode_output = self.EncodeAndFlattenNetwork.EncodeOutput(bgr_frame/255)[0]
+                    tl, junction = self.EncodeAndFlattenNetwork.model.predict(encode_output)
+                    car_data = self.CarlaApi.car_data()
+                    car_speed = car_data['car_speed']
+                    car_steering = car_data['car_steering']
+
+                    state = [tl,junction,car_speed,car_steering]
 
                     # 顯示影像
-                    show_frame = np.hstack((seg_frame, bgr_frame))
-                    cv2.imshow("", show_frame)
+                    cv2.imshow("", bgr_frame)
                     if cv2.waitKey(1) == ord('q'):
                         exit()
 
                     # 選取動作
-                    action = self.DQN.choose_action(seg_frame / 255)
+                    action = self.DQN.choose_action(state)
                     self.control_car(action)
 
                     # 計算獎勵

@@ -198,7 +198,20 @@ class CarlaApi:
             except:
                 continue
 
+    """獲取車輛訊息"""
+    def car_data(self):
+        car_info = {}
 
+        # 車輛速度
+        car_speed = self.vehicle.get_velocity()
+        car_speed = np.sqrt(car_speed.x ** 2 + car_speed.y ** 2 + car_speed.z ** 2) * 3.6
+        car_info['car_speed'] = car_speed
+
+        # 車輛偏移
+        steering = self.vehicle.get_control().steer
+        car_info['car_steering'] = steering
+
+        return car_info
 
     """返回感測器數據"""
     def sensor_data(self):
@@ -208,10 +221,7 @@ class CarlaApi:
                 sensor_info = self.sensor_info_queue.pop()
                 sensor_info['traffic_info'] = self.vehicle.get_traffic_light_state()
 
-                # 車輛速度
-                car_speed = self.vehicle.get_velocity()
-                car_speed = np.sqrt(car_speed.x ** 2 + car_speed.y ** 2 + car_speed.z ** 2) * 3.6
-                sensor_info['car_speed'] = car_speed
+
 
                 # 與目標點距離
                 car_location = self.vehicle.get_location()

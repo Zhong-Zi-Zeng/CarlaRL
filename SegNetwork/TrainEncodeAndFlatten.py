@@ -4,6 +4,7 @@ from tensorflow.keras.optimizers import *
 import tensorflow as tf
 import os
 import cv2
+import linecache
 import numpy as np
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -24,7 +25,7 @@ NUM_TRAINS = int(len(x_train_name) * RATIO)
 BATCH_SIZE = 8
 
 # 學習率
-LR = 0.002
+LR = 0.001
 
 # 生成模型
 model = Network().buildModel()
@@ -33,7 +34,7 @@ model.summary()
 losses = {'TL': 'binary_crossentropy',
           'Junction': 'binary_crossentropy'}
 
-model.compile(optimizer=Adam(learning_rate=LR), loss=losses, metrics=['acc'])
+model.compile(optimizer=RMSprop(learning_rate=LR), loss=losses, metrics=['acc'])
 
 
 def generate(data,batch_size=5):
@@ -63,14 +64,10 @@ def generate(data,batch_size=5):
 
 
 def readSpeficyRow(row):
-    with open('./label.txt','r') as file:
-        line = file.readline()
-        while line:
-            info = line.rstrip().split(' ')
-            if info[0] == str(row):
-                return int(info[1]), int(info[2])
+    row = int(row) / 20 + 1
+    str = linecache.getline('label.txt', int(row)).rstrip().split(' ')
 
-            line = file.readline()
+    return int(str[1]), int(str[2])
 
 
 learning_rate_reduction = ReduceLROnPlateau(
