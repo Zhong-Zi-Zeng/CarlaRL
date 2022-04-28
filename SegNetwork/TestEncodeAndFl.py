@@ -4,9 +4,9 @@ import cv2
 
 
 # 載入權重
-EncodeAndFlatten = Network().buildModel()
+EncodeAndFlatten = Network(now_path='.').buildModel()
 EncodeAndFlatten.model.build(input_shape=(75, 100, 64))
-EncodeAndFlatten.load_weights("")
+EncodeAndFlatten.load_weights()
 
 
 CarlaApi = CarlaApi(img_width=400,img_height=300)
