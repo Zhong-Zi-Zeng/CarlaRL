@@ -32,7 +32,6 @@ def build_dqn(lr,n_actions,**kwargs):
     model.add(Dense(n_actions))
 
     model.build(input_shape=(1,kwargs['img_height'],kwargs['img_width'],3))
-    model.summary()
     model.compile(optimizer=Adam(learning_rate=lr),loss='mse')
 
     return model

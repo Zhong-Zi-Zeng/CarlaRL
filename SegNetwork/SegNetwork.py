@@ -11,7 +11,6 @@ if gpus:
       tf.config.experimental.set_memory_growth(gpu, True)
 
 
-
 class SegNetwork:
     def __init__(self,cls_num=7,LR=0.001):
         self.cls_num = cls_num

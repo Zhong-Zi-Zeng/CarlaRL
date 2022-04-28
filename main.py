@@ -1,54 +1,12 @@
 from CarlaApiAsync import CarlaApi
-from SegNetwork.EncodeAndFlatten import Network
 from DQN import Agent
+from SegNetwork.EncodeAndFlatten import Network
 import matplotlib.pyplot as plt
 import carla
 import cv2
 import numpy as np
-import copy
-import time
+import os
 
-
-def process_seg_frame(seg_frame):
-    seg_frame_cp = copy.deepcopy(seg_frame)
-    AllClass = {
-        '0': (0, 0, 0),  # 未標記
-        '1': (70, 70, 70),  # 建築
-        '2': (40, 40, 100),  # 柵欄
-        '3': (80, 90, 55),  # 其他
-        '4': (60, 20, 220),  # 行人
-        '5': (153, 153, 153),  # 桿
-        '6': (50, 234, 157),  # 道路線
-        '7': (128, 64, 128),  # 馬路
-        '8': (232, 35, 244),  # 人行道
-        '9': (35, 142, 107),  # 植披
-        '10': (142, 0, 0),  # 汽車
-        '11': (156, 102, 102),  # 牆
-        '12': (0, 220, 220),  # 交通號誌
-        '13': (180, 130, 70),  # 天空
-        '14': (81, 0, 81),  # 地面
-        '15': (100, 100, 150),  # 橋
-        '16': (140, 150, 230),  # 鐵路
-        '17': (180, 165, 180),  # 護欄
-        '18': (30, 170, 250),  # 紅綠燈
-        '19': (160, 190, 110),  # 靜止的物理
-        '20': (50, 120, 170),  # 動態的
-        '21': (150, 60, 45),  # 水
-        '22': (100, 170, 145)  # 地形
-    }
-    # not_important = [2, 3, 5, 12, 13, 15, 16, 17, 18, 19, 21, 22]
-    not_important = [1, 2, 3, 5, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]
-    seg_frame_height = seg_frame.shape[0]
-    seg_frame_width = seg_frame.shape[1]
-    for item in AllClass.items():
-        i = int(item[0])
-        if i in not_important:
-            b,g,r = item[1]
-            matrix = np.where((seg_frame[:, :, 0] == b) & (seg_frame[:, :, 1] == g) & (seg_frame[:, :, 2] == r),
-                                   np.ones((seg_frame_height, seg_frame_width)), np.zeros((seg_frame_height, seg_frame_width)))
-            seg_frame_cp[matrix == 1] = 0
-
-    return seg_frame_cp
 
 class main:
     def __init__(self):
@@ -71,7 +29,9 @@ class main:
         self.MAX_MIDDLE_DIS = 2
 
         self.EPISODES = 10000
-        self.EncodeAndFlattenNetwork = Network().buildModel()
+        self.now_path = os.getcwd().replace('\\','/') + '/SegNetwork'
+        self.EncodeAndFlattenNetwork = Network(now_path=self.now_path).buildModel()
+        self.EncodeAndFlattenNetwork.load_weights()
 
         self.train()
 
@@ -96,42 +56,41 @@ class main:
                     # St時刻的影像
                     bgr_frame, _ = self.get_image()
 
-                    encode_output = self.EncodeAndFlattenNetwork.EncodeOutput(bgr_frame/255)[0]
-                    tl, junction = self.EncodeAndFlattenNetwork.model.predict(encode_output)
+                    tl, junction = self.EncodeAndFlattenNetwork.predict(bgr_frame)
+                    print(tl,junction)
                     car_data = self.CarlaApi.car_data()
                     car_speed = car_data['car_speed']
                     car_steering = car_data['car_steering']
 
-                    state = [tl,junction,car_speed,car_steering]
 
+                    # state = [tl,junction,car_speed,car_steering]
                     # 顯示影像
                     cv2.imshow("", bgr_frame)
                     if cv2.waitKey(1) == ord('q'):
                         exit()
 
                     # 選取動作
-                    action = self.DQN.choose_action(state)
-                    self.control_car(action)
+                    # action = self.DQN.choose_action(state)
+                    # self.control_car(action)
 
                     # 計算獎勵
-                    reward,done = self.compute_reward()
-                    total_reward += reward
+                    # done = self.compute_reward()
+                    # total_reward += reward
 
                     # St+1時刻的影像
-                    next_bgr_frame, next_seg_frame = self.get_image()
-                    next_seg_frame = process_seg_frame(next_seg_frame)
+                    # next_bgr_frame, next_seg_frame = self.get_image()
+                    # next_seg_frame = process_seg_frame(next_seg_frame)
 
                     # 訓練網路
-                    self.DQN.remember(seg_frame/255, action, reward, next_seg_frame/255, done)
-                    self.DQN.learn()
+                    # self.DQN.remember(seg_frame/255, action, reward, next_seg_frame/255, done)
+                    # self.DQN.learn()
 
-                total_reward_list.append(total_reward)
-                if total_reward > old_total_reward:
-                    old_total_reward = total_reward
-                    self.DQN.save_model()
+                # total_reward_list.append(total_reward)
 
+                # if total_reward > old_total_reward:
+                #     old_total_reward = total_reward
+                #     self.DQN.save_model()
                 self.CarlaApi.reset()
-                # time.sleep(0.5)
         finally:
             self.CarlaApi.destroy()
             cv2.destroyAllWindows()
@@ -142,38 +101,13 @@ class main:
     """計算獎勵"""
     def compute_reward(self):
         sensor_data = self.CarlaApi.sensor_data()
-        # lane_line_info = sensor_data['lane_line_sensor']
-        collision_info = sensor_data['collision_sensor']
-        # traffic_info = sensor_data['traffic_info']
-        dis_info = sensor_data['finish_point_dis']
-        car_speed = sensor_data['car_speed']
+        collision = sensor_data['collision_sensor']
         done = False
 
-        # 速度獎勵
-        if car_speed == self.DESIRED_SPEED:
-            speed_reward = 1
-        else:
-            speed_reward = 0
-
-        # 與目標的距離獎勵
-        if dis_info <= 0.3:
-            dis_reward = 0
-        else:
-            dis_reward = -1
-
-        reward = dis_reward + speed_reward
-
-        # 懲罰
-        if collision_info or dis_info > self.MAX_MIDDLE_DIS:
+        if collision:
             done = True
-            reward = -1
 
-        print('=' * 30)
-        print('Target Distance:%.3f' % (dis_info))
-        print('Car Speed:%.2f' % (car_speed))
-        print('Reward:%.3f' % (reward))
-
-        return reward, done
+        return done
 
 
     """車輛控制"""

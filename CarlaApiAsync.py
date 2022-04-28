@@ -1,8 +1,6 @@
 import carla
 import numpy as np
-from queue import Queue
 from collections import deque
-import time
 
 
 def process_bgr_frame(bgr_frame):
@@ -72,8 +70,7 @@ class CarlaApi:
 
             self.sensor_info_queue.append(sensor_info)
 
-            if sensor_info['collision_sensor']:
-                self.block = True
+            self.block = True if sensor_info['collision_sensor'] else False
 
     """等待模擬開始"""
     def wait_for_sim(self):
@@ -112,12 +109,6 @@ class CarlaApi:
 
     """產生感測器"""
     def _spawn_sensor(self):
-        """產生車道偵測感測器"""
-        lane_sensor_bp = self.blueprint_library.find('sensor.other.lane_invasion')
-        lane_line_sensor = self.world.spawn_actor(lane_sensor_bp, carla.Transform(), attach_to=self.vehicle)
-
-        self.sensor_list.append([lane_line_sensor,'lane_line_sensor'])
-
         """產生碰撞感測器"""
         collision_bp = self.blueprint_library.find("sensor.other.collision")
         collision_sensor = self.world.spawn_actor(collision_bp, carla.Transform(), attach_to=self.vehicle)
@@ -159,7 +150,6 @@ class CarlaApi:
         self._spawn_vehicle(AutoMode)
         self._spawn_sensor()
         self._spawn_camera()
-        self._spawn_finish_point()
         self._build_queue()
         self.world.on_tick(self._callback)
 
@@ -170,8 +160,7 @@ class CarlaApi:
         self.control_vehicle(control)
         self.vehicle.set_target_velocity(velocity)
         self.block = False
-        self._spawn_vehicle()
-        self._spawn_finish_point()
+        self._spawn_vehicle(AutoMode=False)
         self._clear_queue()
 
     """控制車子"""
@@ -180,11 +169,6 @@ class CarlaApi:
             self.vehicle.apply_control(control)
         else:
             print('The parameter "control" must be carla.VehicleControl object.')
-
-    """取得道路中心點座標"""
-    def _spawn_finish_point(self):
-        self.way_point = self.world.get_map().get_waypoint(self.vehicle_transform.location)
-        self.way_point = self.way_point.next(1)
 
     """返回攝影機數據"""
     def camera_data(self):
@@ -207,31 +191,21 @@ class CarlaApi:
         car_speed = np.sqrt(car_speed.x ** 2 + car_speed.y ** 2 + car_speed.z ** 2) * 3.6
         car_info['car_speed'] = car_speed
 
-        # 車輛偏移
+        # 方向盤
         steering = self.vehicle.get_control().steer
         car_info['car_steering'] = steering
 
         return car_info
 
+    """導航訊息"""
+    def Navigation_data(self):
+        pass
+
     """返回感測器數據"""
     def sensor_data(self):
         while True:
             try:
-                # 交通號誌訊息
                 sensor_info = self.sensor_info_queue.pop()
-                sensor_info['traffic_info'] = self.vehicle.get_traffic_light_state()
-
-
-
-                # 與目標點距離
-                car_location = self.vehicle.get_location()
-                target_location = self.way_point[0].transform.location
-                sensor_info['finish_point_dis'] = np.sqrt((car_location.x - target_location.x) ** 2 +
-                                                          (car_location.y - target_location.y) ** 2 +
-                                                          (car_location.z - target_location.z) ** 2)
-                if(sensor_info['finish_point_dis'] < 0.2):
-                    self.way_point = self.way_point.next(1)
-
                 return sensor_info
             except:
                 continue

@@ -23,13 +23,13 @@ RATIO = 0.7
 NUM_TRAINS = int(len(x_train_name) * RATIO)
 
 # 訓練批次
-BATCH_SIZE = 8
+BATCH_SIZE = 64
 
 # 學習率
 LR = 0.001
 
 # 生成模型
-EncodeAndFlattenNetwork = Network().buildModel()
+EncodeAndFlattenNetwork = Network(now_path='.').buildModel()
 EncodeAndFlattenNetwork.model.summary()
 
 losses = {'TL': 'binary_crossentropy',
@@ -52,14 +52,13 @@ def generate(data,batch_size=5):
             # X_train圖片處理
             ori_img = cv2.imread(x_train_path + '/' + img_name)
             ori_img = ori_img[np.newaxis,:]
-            print(img_name)
             encode_output = EncodeAndFlattenNetwork.EncodeOutput(ori_img)
             X_train.append(encode_output)
 
             # Label 處理
-            label = readSpeficyRow(img_name.strip('.png'))
-            TL_label.append(label[0])
-            Injunction_label.append(label[1])
+            Junction_label, Tl_label = readSpeficyRow(img_name.strip('.png'))
+            TL_label.append(Tl_label)
+            Injunction_label.append(Junction_label)
             i = (i + 1) % n
 
         yield (np.array(X_train), [np.array(TL_label), np.array(Injunction_label)])
@@ -68,8 +67,10 @@ def generate(data,batch_size=5):
 def readSpeficyRow(row):
     row = int(row) / 20 + 1
     str = linecache.getline('label.txt', int(row)).rstrip().split(' ')
+    Junction_label = int(str[1])
+    Tl_label = int(str[2])
 
-    return int(str[1]), int(str[2])
+    return Junction_label, Tl_label
 
 
 learning_rate_reduction = ReduceLROnPlateau(
