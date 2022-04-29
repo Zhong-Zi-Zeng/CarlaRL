@@ -11,22 +11,29 @@ import os
 class main:
     def __init__(self):
         self.CarlaApi = CarlaApi(img_width=400,img_height=300)
-        self.DQN = Agent(lr=0.0003,
-                         gamma=0.99,
-                         n_actions=6,
-                         epsilon=0.3,
-                         batch_size=8,
-                         epsilon_end=0.1,
-                         mem_size=3000,
-                         epsilon_dec=0.95,
-                         img_width=400,
-                         img_height=300,
-                         iteration=200,
-                         fixed_q=True)
+        # self.DQN = Agent(lr=0.0003,
+        #                  gamma=0.99,
+        #                  n_actions=6,
+        #                  epsilon=0.3,
+        #                  batch_size=8,
+        #                  epsilon_end=0.1,
+        #                  mem_size=3000,
+        #                  epsilon_dec=0.95,
+        #                  img_width=400,
+        #                  img_height=300,
+        #                  iteration=200,
+        #                  fixed_q=True)
+
         # 期望時速
         self.DESIRED_SPEED = 15
         # 與道路中心點最遠允許距離
         self.MAX_MIDDLE_DIS = 2
+        # 與道路中心點完成距離
+        self.MIN_MIDDLE_DIS = 0.5
+        # 與道路中心點完成角度
+        self.ANGEL_LIMIT = 1
+        # 編碼器輸出閥值
+        self.THRESHOLD = 0.8
 
         self.EPISODES = 10000
         self.now_path = os.getcwd().replace('\\','/') + '/SegNetwork'
@@ -53,17 +60,18 @@ class main:
                 print('Episode:%d'%(i))
                 total_reward = 0
                 while not done:
-                    # St時刻的影像
+                    # St時刻的狀態
                     bgr_frame, _ = self.get_image()
 
                     tl, junction = self.EncodeAndFlattenNetwork.predict(bgr_frame)
-                    print(tl,junction)
+                    tl = np.squeeze(tl)
+                    junction = np.squeeze(junction)
+                    tl = 1 if tl > self.THRESHOLD else 0
+                    junction = 1 if junction > self.THRESHOLD else 0
+
                     car_data = self.CarlaApi.car_data()
-                    car_speed = car_data['car_speed']
-                    car_steering = car_data['car_steering']
+                    state = [tl,junction,car_data['car_speed'],car_data['car_steering'],car_data['way_dis'],car_data['way_degree']]
 
-
-                    # state = [tl,junction,car_speed,car_steering]
                     # 顯示影像
                     cv2.imshow("", bgr_frame)
                     if cv2.waitKey(1) == ord('q'):
@@ -71,7 +79,7 @@ class main:
 
                     # 選取動作
                     # action = self.DQN.choose_action(state)
-                    # self.control_car(action)
+                    # self.control_car()
 
                     # 計算獎勵
                     # done = self.compute_reward()

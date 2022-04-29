@@ -2,7 +2,7 @@ import carla
 import numpy as np
 from collections import deque
 
-
+# ============處理bgr影像============
 def process_bgr_frame(bgr_frame):
     bgr_frame.convert(carla.ColorConverter.Raw)
     array = np.frombuffer(bgr_frame.raw_data, dtype=np.uint8)
@@ -11,6 +11,7 @@ def process_bgr_frame(bgr_frame):
 
     return bgr_frame
 
+# ============處理seg影像============
 def process_seg_frame(seg_frame):
     seg_frame.convert(carla.ColorConverter.CityScapesPalette)
     array = np.frombuffer(seg_frame.raw_data, dtype=np.uint8)
@@ -19,9 +20,28 @@ def process_seg_frame(seg_frame):
 
     return seg_frame
 
+# ============計算與waypoint的角度============
+def countDegree(car_transform, waypoint):
+    car_mat = car_transform.get_matrix()
+    car_dir = np.array([car_mat[0][0], car_mat[1][0]], dtype=np.float32)
+
+    way_mat = waypoint.transform.get_matrix()
+    way_dir = np.array([way_mat[0][3] - car_mat[0][3], way_mat[1][3] - car_mat[1][3]], dtype=np.float32)
+
+    cos_theta = np.dot(car_dir, way_dir) / (np.linalg.norm(car_dir) * np.linalg.norm(way_dir))
+    left_right = abs(np.cross(car_dir, way_dir)) / np.cross(car_dir, way_dir)
+
+    cos_theta = np.clip(cos_theta, -1, 1)
+    rad = np.arccos(cos_theta) * left_right
+
+    degree = rad * 180 / np.pi
+
+    return degree
+
 class CarlaApi:
     def __init__(self,img_width,img_height):
         self.world = None
+        self.map = None
         self.blueprint_library = None
         self.vehicle = None
         self.vehicle_transform = None
@@ -30,6 +50,7 @@ class CarlaApi:
         self.img_height = img_height
         self.frame = 0
 
+        self.waypoint_list = []
         self.sensor_list = []
         self.camera_list = []
         self.sensor_queue_list = []
@@ -38,11 +59,12 @@ class CarlaApi:
         self.camera_info_queue = deque(maxlen=5)
 
     """連接到模擬環境"""
-    def connect_to_world(self):
+    def _connect_to_world(self):
         print('Connect to world....')
         client = carla.Client('localhost', 2000)
         client.set_timeout(20.0)
         self.world = client.get_world()
+        self.map = self.world.get_map()
         self.blueprint_library = self.world.get_blueprint_library()
 
     """取出佇列資料"""
@@ -75,6 +97,14 @@ class CarlaApi:
     """等待模擬開始"""
     def wait_for_sim(self):
         self.world.wait_for_tick()
+
+    """切換下一個路徑點"""
+    def toggle_waypoint(self):
+        self.waypoint_list.pop()
+
+        # 當路徑點被取完後生成新的路徑點
+        if not len(self.waypoint_list):
+            self._build_waypoint()
 
     """產生車輛"""
     def _spawn_vehicle(self,AutoMode):
@@ -115,6 +145,15 @@ class CarlaApi:
 
         self.sensor_list.append([collision_sensor,'collision_sensor'])
 
+    """生成路徑點"""
+    def _build_waypoint(self,distance=200,sample=3):
+        first_way = self.map.get_waypoint(self.vehicle_transform.location).next(sample)
+        self.waypoint_list.append(first_way[0])
+
+        for i in range(distance // sample):
+            way = self.waypoint_list[i].next(sample)
+            self.waypoint_list.append(way[0])
+
     """建立佇列"""
     def _build_queue(self):
         for sensor, sensor_name in self.sensor_list:
@@ -146,11 +185,12 @@ class CarlaApi:
 
     """初始化"""
     def initial(self,AutoMode=False):
-        self.connect_to_world()
+        self._connect_to_world()
         self._spawn_vehicle(AutoMode)
         self._spawn_sensor()
         self._spawn_camera()
         self._build_queue()
+        self._build_waypoint()
         self.world.on_tick(self._callback)
 
     """重置"""
@@ -191,15 +231,19 @@ class CarlaApi:
         car_speed = np.sqrt(car_speed.x ** 2 + car_speed.y ** 2 + car_speed.z ** 2) * 3.6
         car_info['car_speed'] = car_speed
 
-        # 方向盤
+        # 方向盤數值
         steering = self.vehicle.get_control().steer
         car_info['car_steering'] = steering
 
-        return car_info
+        # 車輛與當前路徑點的角度差與距離
+        way = self.waypoint_list[0]
+        way_dis = way.transform.location.distance(self.vehicle.get_transform().location)
+        car_info['way_dis'] = way_dis
 
-    """導航訊息"""
-    def Navigation_data(self):
-        pass
+        way_angel = countDegree(self.vehicle.get_transform(),way)
+        car_info['way_degree'] = way_angel
+
+        return car_info
 
     """返回感測器數據"""
     def sensor_data(self):

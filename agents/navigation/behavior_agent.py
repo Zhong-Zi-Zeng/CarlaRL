@@ -88,9 +88,6 @@ class BehaviorAgent(BasicAgent):
     def getIncomingWaypoint(self):
         return self._incoming_waypoint
 
-    def getVehicle(self):
-        return self._vehicle
-
     def _vehicle_obstacle_detected(self, vehicle_list, proximity_th, up_angle_th, low_angle_th=0, lane_offset=0):
         """
         Check if a given vehicle is an obstacle in our way. To this end we take
