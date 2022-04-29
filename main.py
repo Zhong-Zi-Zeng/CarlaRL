@@ -11,31 +11,28 @@ import os
 class main:
     def __init__(self):
         self.CarlaApi = CarlaApi(img_width=400,img_height=300)
-        # self.DQN = Agent(lr=0.0003,
-        #                  gamma=0.99,
-        #                  n_actions=6,
-        #                  epsilon=0.3,
-        #                  batch_size=8,
-        #                  epsilon_end=0.1,
-        #                  mem_size=3000,
-        #                  epsilon_dec=0.95,
-        #                  img_width=400,
-        #                  img_height=300,
-        #                  iteration=200,
-        #                  fixed_q=True)
+        self.DQN = Agent(lr=0.0003,
+                         gamma=0.99,
+                         n_actions=6,
+                         epsilon=0.3,
+                         batch_size=16,
+                         epsilon_end=0.1,
+                         mem_size=40000,
+                         epsilon_dec=0.95,
+                         input_shape=6)
 
         # 期望時速
-        self.DESIRED_SPEED = 15
+        self.DESIRED_SPEED = 20
         # 與道路中心點最遠允許距離
-        self.MAX_MIDDLE_DIS = 2
+        self.MAX_MIDDLE_DIS = 3.5
         # 與道路中心點完成距離
-        self.MIN_MIDDLE_DIS = 0.5
-        # 與道路中心點完成角度
-        self.ANGEL_LIMIT = 1
+        self.MIN_MIDDLE_DIS = 0.6
+        # 允許偏移角度
+        self.DEGREE_LIMIT = 15
         # 編碼器輸出閥值
         self.THRESHOLD = 0.8
 
-        self.EPISODES = 10000
+        self.EPISODES = 100000
         self.now_path = os.getcwd().replace('\\','/') + '/SegNetwork'
         self.EncodeAndFlattenNetwork = Network(now_path=self.now_path).buildModel()
         self.EncodeAndFlattenNetwork.load_weights()
@@ -48,6 +45,19 @@ class main:
         seg_frame = camera_data['seg_camera']
 
         return bgr_frame, seg_frame
+
+    def get_state(self,bgr_frame):
+        tl, junction = self.EncodeAndFlattenNetwork.predict(bgr_frame)
+        tl = np.squeeze(tl)
+        junction = np.squeeze(junction)
+        tl = 1 if tl > self.THRESHOLD else 0
+        junction = 1 if junction > self.THRESHOLD else 0
+
+        car_data = self.CarlaApi.car_data()
+        state = [tl, junction, car_data['car_speed'], car_data['car_steering'], car_data['way_dis'],
+                 car_data['way_degree']/360]
+        print(car_data)
+        return state
 
     def train(self):
         self.CarlaApi.initial()
@@ -62,15 +72,7 @@ class main:
                 while not done:
                     # St時刻的狀態
                     bgr_frame, _ = self.get_image()
-
-                    tl, junction = self.EncodeAndFlattenNetwork.predict(bgr_frame)
-                    tl = np.squeeze(tl)
-                    junction = np.squeeze(junction)
-                    tl = 1 if tl > self.THRESHOLD else 0
-                    junction = 1 if junction > self.THRESHOLD else 0
-
-                    car_data = self.CarlaApi.car_data()
-                    state = [tl,junction,car_data['car_speed'],car_data['car_steering'],car_data['way_dis'],car_data['way_degree']]
+                    state = self.get_state(bgr_frame)
 
                     # 顯示影像
                     cv2.imshow("", bgr_frame)
@@ -78,26 +80,27 @@ class main:
                         exit()
 
                     # 選取動作
-                    # action = self.DQN.choose_action(state)
-                    # self.control_car()
+                    action = self.DQN.choose_action(state)
+                    self.control_car(action)
 
                     # 計算獎勵
-                    # done = self.compute_reward()
-                    # total_reward += reward
+                    reward, done = self.compute_reward()
+                    total_reward += reward
 
                     # St+1時刻的影像
-                    # next_bgr_frame, next_seg_frame = self.get_image()
-                    # next_seg_frame = process_seg_frame(next_seg_frame)
+                    next_bgr_frame, _ = self.get_image()
+                    next_state = self.get_state(next_bgr_frame)
 
                     # 訓練網路
-                    # self.DQN.remember(seg_frame/255, action, reward, next_seg_frame/255, done)
-                    # self.DQN.learn()
+                    self.DQN.remember(state, action, reward, next_state, done)
+                    self.DQN.learn()
 
-                # total_reward_list.append(total_reward)
+                total_reward_list.append(total_reward)
 
-                # if total_reward > old_total_reward:
-                #     old_total_reward = total_reward
-                #     self.DQN.save_model()
+                if total_reward > old_total_reward:
+                    old_total_reward = total_reward
+                    self.DQN.save_model()
+
                 self.CarlaApi.reset()
         finally:
             self.CarlaApi.destroy()
@@ -109,13 +112,40 @@ class main:
     """計算獎勵"""
     def compute_reward(self):
         sensor_data = self.CarlaApi.sensor_data()
+        car_data = self.CarlaApi.car_data()
         collision = sensor_data['collision_sensor']
         done = False
+        reward = 0
 
-        if collision:
+        # 紅燈時改變速度期望值
+        if str(car_data['tl']) == 'Red':
+            if car_data['car_speed'] == 0:
+                reward += 1
+        elif str(car_data['tl']) == 'Green':
+            if int(car_data['car_speed']) == self.DESIRED_SPEED:
+                reward += 1
+
+        # 判斷位置獎勵
+        if car_data['way_dis'] > self.MAX_MIDDLE_DIS:
+            reward = -1
             done = True
 
-        return done
+        # 若到達指定距離則切換下一個中心點
+        if car_data['way_dis'] < self.MIN_MIDDLE_DIS:
+            reward += 1
+            self.CarlaApi.toggle_waypoint()
+
+        # 判斷角度
+        if abs(car_data['way_degree']) > self.DEGREE_LIMIT:
+            reward = -1
+            done = True
+
+        # 是否有撞擊到東西
+        if collision:
+            reward = -1
+            done = True
+
+        return reward, done
 
 
     """車輛控制"""
@@ -124,7 +154,7 @@ class main:
                 0:前進、1:煞車、2:半左轉、3:半右轉、4:全左轉、5:全右轉
         """
         control = carla.VehicleControl()
-        control.throttle = 0.7
+        control.throttle = 0.5
         control.brake = 0
         if (action == 0):
             control.steer = 0.0
@@ -140,9 +170,7 @@ class main:
         elif (action == 5):
             control.steer = 1.0
 
-
         self.CarlaApi.control_vehicle(control)
-
 
 if __name__ == "__main__":
     main()

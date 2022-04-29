@@ -201,6 +201,7 @@ class CarlaApi:
         self.vehicle.set_target_velocity(velocity)
         self.block = False
         self._spawn_vehicle(AutoMode=False)
+        self._build_waypoint()
         self._clear_queue()
 
     """控制車子"""
@@ -242,6 +243,10 @@ class CarlaApi:
 
         way_angel = countDegree(self.vehicle.get_transform(),way)
         car_info['way_degree'] = way_angel
+
+        # 真正紅綠燈訊息
+        tl_data = self.vehicle.get_traffic_light_state()
+        car_info['tl'] = tl_data
 
         return car_info
 
