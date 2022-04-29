@@ -124,6 +124,8 @@ class main:
         elif str(car_data['tl']) == 'Green':
             if int(car_data['car_speed']) == self.DESIRED_SPEED:
                 reward += 1
+        elif str(car_data['tl']) == 'Green' and int(car_data['car_speed']) == 0:
+            reward -= 1
 
         # 判斷位置獎勵
         if car_data['way_dis'] > self.MAX_MIDDLE_DIS:
@@ -154,7 +156,7 @@ class main:
                 0:前進、1:煞車、2:半左轉、3:半右轉、4:全左轉、5:全右轉
         """
         control = carla.VehicleControl()
-        control.throttle = 0.5
+        control.throttle = 0.6
         control.brake = 0
         if (action == 0):
             control.steer = 0.0
