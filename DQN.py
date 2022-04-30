@@ -17,7 +17,7 @@ def build_dqn(lr,input_shape,n_actions):
     h2 = Dense(512, activation='relu')(h1)
     h3 = Dense(256, activation='relu')(h2)
     h4 = Dense(128, activation='relu')(h3)
-    output = Dense(n_actions,activation=None)(h4)
+    output = Dense(n_actions,activation='linear')(h4)
 
     model = Model(inputs=[input],outputs=[output])
     model.compile(Adam(learning_rate=lr),loss='mse')

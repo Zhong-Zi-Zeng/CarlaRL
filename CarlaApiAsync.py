@@ -39,13 +39,14 @@ def countDegree(car_transform, waypoint):
     return degree
 
 class CarlaApi:
-    def __init__(self,img_width,img_height):
+    def __init__(self,img_width,img_height,MIN_MIDDLE_DIS):
         self.world = None
         self.map = None
         self.blueprint_library = None
         self.vehicle = None
         self.vehicle_transform = None
         self.block = False
+        self.MIN_MIDDLE_DIS = MIN_MIDDLE_DIS
         self.img_width = img_width
         self.img_height = img_height
         self.frame = 0
@@ -76,6 +77,14 @@ class CarlaApi:
     def _callback(self,WorldSnapshot):
         self._camera_callback()
         self._sensor_callback()
+        self._next_waypoint_callback()
+
+    """是否切換下一個路徑點"""
+    def _next_waypoint_callback(self):
+        way = self.waypoint_list[0]
+        dis = self.vehicle.get_transform().location.distance(way.transform.location)
+        if dis < self.MIN_MIDDLE_DIS:
+            self._toggle_waypoint()
 
     """相機回調函式"""
     def _camera_callback(self):
@@ -99,9 +108,8 @@ class CarlaApi:
         self.world.wait_for_tick()
 
     """切換下一個路徑點"""
-    def toggle_waypoint(self):
-        self.waypoint_list.pop()
-
+    def _toggle_waypoint(self):
+        self.waypoint_list.pop(0)
         # 當路徑點被取完後生成新的路徑點
         if not len(self.waypoint_list):
             self._build_waypoint()
@@ -147,6 +155,7 @@ class CarlaApi:
 
     """生成路徑點"""
     def _build_waypoint(self,distance=200,sample=3):
+        self.waypoint_list = []
         first_way = self.map.get_waypoint(self.vehicle_transform.location).next(sample)
         self.waypoint_list.append(first_way[0])
 
@@ -197,8 +206,8 @@ class CarlaApi:
     def reset(self):
         velocity = carla.Vector3D(x=0.0,y=0.0,z=0.0)
         control = carla.VehicleControl(throttle=0.0,steer=0.0,brake=0)
-        self.control_vehicle(control)
         self.vehicle.set_target_velocity(velocity)
+        self.control_vehicle(control)
         self.block = False
         self._spawn_vehicle(AutoMode=False)
         self._build_waypoint()

@@ -10,8 +10,8 @@ import os
 
 class main:
     def __init__(self):
-        self.CarlaApi = CarlaApi(img_width=400,img_height=300)
-        self.DQN = Agent(lr=0.0003,
+        self.CarlaApi = CarlaApi(img_width=400,img_height=300,MIN_MIDDLE_DIS=0.6)
+        self.DQN = Agent(lr=0.0005,
                          gamma=0.99,
                          n_actions=6,
                          epsilon=0.3,
@@ -24,11 +24,9 @@ class main:
         # 期望時速
         self.DESIRED_SPEED = 20
         # 與道路中心點最遠允許距離
-        self.MAX_MIDDLE_DIS = 3.5
-        # 與道路中心點完成距離
-        self.MIN_MIDDLE_DIS = 0.6
+        self.MAX_MIDDLE_DIS = 3.43
         # 允許偏移角度
-        self.DEGREE_LIMIT = 15
+        self.DEGREE_LIMIT = 30
         # 編碼器輸出閥值
         self.THRESHOLD = 0.8
 
@@ -118,24 +116,20 @@ class main:
         reward = 0
 
         # 紅燈時改變速度期望值
-        if str(car_data['tl']) == 'Red':
-            if car_data['car_speed'] == 0:
-                reward += 1
-        elif str(car_data['tl']) == 'Green':
-            if int(car_data['car_speed']) == self.DESIRED_SPEED:
-                reward += 1
-        elif str(car_data['tl']) == 'Green' and int(car_data['car_speed']) == 0:
-            reward -= 1
+        # if str(car_data['tl']) == 'Red':
+        #     if car_data['car_speed'] == 0:
+        #         reward += 1
+        # elif str(car_data['tl']) == 'Green':
+        #     if int(car_data['car_speed']) == self.DESIRED_SPEED:
+        #         reward += 1q
+
+        if str(car_data['tl']) == 'Green' and int(car_data['car_speed']) == 0:
+            reward = -0.5
 
         # 判斷位置獎勵
         if car_data['way_dis'] > self.MAX_MIDDLE_DIS:
             reward = -1
             done = True
-
-        # 若到達指定距離則切換下一個中心點
-        if car_data['way_dis'] < self.MIN_MIDDLE_DIS:
-            reward += 1
-            self.CarlaApi.toggle_waypoint()
 
         # 判斷角度
         if abs(car_data['way_degree']) > self.DEGREE_LIMIT:
