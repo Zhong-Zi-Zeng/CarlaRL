@@ -20,7 +20,7 @@ def build_dqn(lr,input_shape,n_actions):
     output = Dense(n_actions,activation='linear')(h4)
 
     model = Model(inputs=[input],outputs=[output])
-    model.compile(Adam(learning_rate=lr),loss='mse')
+    model.compile(RMSprop(learning_rate=lr),loss='mse')
     model.summary()
 
     return model
@@ -78,7 +78,7 @@ class Agent():
                  ,mem_size
                  ,epsilon_dec
                  ,input_shape
-                 ,f_name="dqn_model.h5"):
+                 ,f_name="./dqn_model.h5"):
 
         self.action_space = [i for i in range(n_actions)]
         self.n_actions = n_actions
@@ -108,7 +108,9 @@ class Agent():
             action = np.random.choice(self.action_space)
         else:
             actions = self.q_eval.predict(state)
+            print(actions)
             action = np.argmax(actions)
+
 
         return action
 

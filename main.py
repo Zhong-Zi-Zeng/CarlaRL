@@ -17,16 +17,16 @@ class main:
                          epsilon=0.3,
                          batch_size=16,
                          epsilon_end=0.1,
-                         mem_size=40000,
-                         epsilon_dec=0.95,
+                         mem_size=50000,
+                         epsilon_dec=0.99,
                          input_shape=6)
 
         # 期望時速
         self.DESIRED_SPEED = 20
         # 與道路中心點最遠允許距離
-        self.MAX_MIDDLE_DIS = 3.43
+        self.MAX_MIDDLE_DIS = 3.6
         # 允許偏移角度
-        self.DEGREE_LIMIT = 30
+        self.DEGREE_LIMIT = 60
         # 編碼器輸出閥值
         self.THRESHOLD = 0.8
 
@@ -45,33 +45,34 @@ class main:
         return bgr_frame, seg_frame
 
     def get_state(self,bgr_frame):
-        tl, junction = self.EncodeAndFlattenNetwork.predict(bgr_frame)
-        tl = np.squeeze(tl)
-        junction = np.squeeze(junction)
-        tl = 1 if tl > self.THRESHOLD else 0
-        junction = 1 if junction > self.THRESHOLD else 0
+        # tl, junction = self.EncodeAndFlattenNetwork.predict(bgr_frame)
+        # tl = np.squeeze(tl)
+        # junction = np.squeeze(junction)
+        # tl = 1 if tl > self.THRESHOLD else 0
+        # junction = 1 if junction > self.THRESHOLD else 0
+
 
         car_data = self.CarlaApi.car_data()
-        state = [tl, junction, car_data['car_speed'], car_data['car_steering'], car_data['way_dis'],
+        state = [0, 0, car_data['car_speed'], car_data['car_steering'], car_data['way_dis'],
                  car_data['way_degree']/360]
-        print(car_data)
+        # print(car_data)
         return state
 
     def train(self):
         self.CarlaApi.initial()
         self.CarlaApi.wait_for_sim()
         total_reward_list = []
-        old_total_reward = 0
+
         try:
             for i in range(self.EPISODES):
                 done = False
                 print('Episode:%d'%(i))
                 total_reward = 0
-                while not done:
-                    # St時刻的狀態
-                    bgr_frame, _ = self.get_image()
-                    state = self.get_state(bgr_frame)
+                # St時刻的狀態
+                bgr_frame, _ = self.get_image()
+                state = self.get_state(bgr_frame)
 
+                while not done:
                     # 顯示影像
                     cv2.imshow("", bgr_frame)
                     if cv2.waitKey(1) == ord('q'):
@@ -93,12 +94,11 @@ class main:
                     self.DQN.remember(state, action, reward, next_state, done)
                     self.DQN.learn()
 
+                    state = next_state
+
                 total_reward_list.append(total_reward)
-
-                if total_reward > old_total_reward:
-                    old_total_reward = total_reward
+                if i % 20 == 0:
                     self.DQN.save_model()
-
                 self.CarlaApi.reset()
         finally:
             self.CarlaApi.destroy()
@@ -121,24 +121,29 @@ class main:
         #         reward += 1
         # elif str(car_data['tl']) == 'Green':
         #     if int(car_data['car_speed']) == self.DESIRED_SPEED:
-        #         reward += 1q
+        #         reward += 1
 
-        if str(car_data['tl']) == 'Green' and int(car_data['car_speed']) == 0:
-            reward = -0.5
+        # if str(car_data['tl']) == 'Green' and int(car_data['car_speed']) == 0:
+        #     reward = -0.5
+        if int(car_data['car_speed']) == 0:
+            reward = -5
 
         # 判斷位置獎勵
         if car_data['way_dis'] > self.MAX_MIDDLE_DIS:
             reward = -1
             done = True
 
+        # if car_data['way_dis'] < 0.6:
+        #     reward = 1
+
         # 判斷角度
         if abs(car_data['way_degree']) > self.DEGREE_LIMIT:
-            reward = -1
+            reward = -10
             done = True
 
         # 是否有撞擊到東西
         if collision:
-            reward = -1
+            reward = -10
             done = True
 
         return reward, done
@@ -150,7 +155,7 @@ class main:
                 0:前進、1:煞車、2:半左轉、3:半右轉、4:全左轉、5:全右轉
         """
         control = carla.VehicleControl()
-        control.throttle = 0.6
+        control.throttle = 0.4
         control.brake = 0
         if (action == 0):
             control.steer = 0.0
