@@ -19,7 +19,7 @@ class main:
                          epsilon_end=0.1,
                          mem_size=50000,
                          epsilon_dec=0.99,
-                         input_shape=6)
+                         input_shape=3)
 
         # 期望時速
         self.DESIRED_SPEED = 20
@@ -51,10 +51,17 @@ class main:
         # tl = 1 if tl > self.THRESHOLD else 0
         # junction = 1 if junction > self.THRESHOLD else 0
 
-
         car_data = self.CarlaApi.car_data()
-        state = [0, 0, car_data['car_speed'], car_data['car_steering'], car_data['way_dis'],
-                 car_data['way_degree']/360]
+        navigation = np.zeros(3) # 前方、左方、右方
+        if car_data['way_degree'] > 25:
+            navigation[2] = 1
+        elif car_data['way_degree'] < -25:
+            navigation[1] = 1
+        else:
+            navigation[0] = 1
+
+        state = [navigation[0],navigation[1],navigation[2]]
+
         # print(car_data)
         return state
 
@@ -126,24 +133,24 @@ class main:
         # if str(car_data['tl']) == 'Green' and int(car_data['car_speed']) == 0:
         #     reward = -0.5
         if int(car_data['car_speed']) == 0:
-            reward = -5
+            reward = -2
 
         # 判斷位置獎勵
         if car_data['way_dis'] > self.MAX_MIDDLE_DIS:
-            reward = -1
+            reward = -5
             done = True
 
-        # if car_data['way_dis'] < 0.6:
-        #     reward = 1
+        if car_data['way_dis'] < 0.6:
+            reward = 1
 
         # 判斷角度
         if abs(car_data['way_degree']) > self.DEGREE_LIMIT:
-            reward = -10
+            reward = -5
             done = True
 
         # 是否有撞擊到東西
         if collision:
-            reward = -10
+            reward = -5
             done = True
 
         return reward, done
