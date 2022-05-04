@@ -6,6 +6,7 @@ import carla
 import cv2
 import numpy as np
 import os
+import time
 
 
 class main:
@@ -17,9 +18,9 @@ class main:
                          epsilon=0.3,
                          batch_size=16,
                          epsilon_end=0.1,
-                         mem_size=50000,
-                         epsilon_dec=0.99,
-                         input_shape=3)
+                         mem_size=10000,
+                         epsilon_dec=0.96,
+                         input_shape=40)
 
         # 期望時速
         self.DESIRED_SPEED = 20
@@ -52,17 +53,25 @@ class main:
         # junction = 1 if junction > self.THRESHOLD else 0
 
         car_data = self.CarlaApi.car_data()
-        navigation = np.zeros(3) # 前方、左方、右方
-        if car_data['way_degree'] > 25:
-            navigation[2] = 1
-        elif car_data['way_degree'] < -25:
-            navigation[1] = 1
-        else:
-            navigation[0] = 1
 
-        state = [navigation[0],navigation[1],navigation[2]]
+        # 角度部分
+        car_data['way_degree'] = np.clip(car_data['way_degree'], -60, 60)
+        degree_lin = np.linspace(-60, 60, 41)
+        degree_state = np.zeros(40)
 
-        # print(car_data)
+        index = 0
+        for i in range(len(degree_lin)):
+            if car_data['way_degree'] < degree_lin[i]:
+                index = i
+                break
+        degree_state[index - 1] = 1
+
+        # 距離部分
+        # car_data['way_degree'] = np.clip(car_data['way_degree'], 0.6, 3.6)
+        # dis_lin = np.linspace(0.6,3.6,5)
+
+        state = degree_state
+        # print(state)
         return state
 
     def train(self):
@@ -104,9 +113,12 @@ class main:
                     state = next_state
 
                 total_reward_list.append(total_reward)
-                if i % 20 == 0:
+
+                if i % 50 == 0:
                     self.DQN.save_model()
+
                 self.CarlaApi.reset()
+                time.sleep(0.5)
         finally:
             self.CarlaApi.destroy()
             cv2.destroyAllWindows()
@@ -133,24 +145,24 @@ class main:
         # if str(car_data['tl']) == 'Green' and int(car_data['car_speed']) == 0:
         #     reward = -0.5
         if int(car_data['car_speed']) == 0:
-            reward = -2
+            reward = -1
 
         # 判斷位置獎勵
         if car_data['way_dis'] > self.MAX_MIDDLE_DIS:
-            reward = -5
+            reward = -20
             done = True
 
-        if car_data['way_dis'] < 0.6:
-            reward = 1
+        if car_data['way_dis'] < 0.6 and abs(car_data['way_degree']) < 5:
+            reward = 10
 
         # 判斷角度
         if abs(car_data['way_degree']) > self.DEGREE_LIMIT:
-            reward = -5
+            reward = -20
             done = True
 
         # 是否有撞擊到東西
         if collision:
-            reward = -5
+            reward = -20
             done = True
 
         return reward, done

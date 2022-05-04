@@ -78,6 +78,7 @@ class Agent():
                  ,mem_size
                  ,epsilon_dec
                  ,input_shape
+                 ,iteration=200
                  ,f_name="./dqn_model.h5"):
 
         self.action_space = [i for i in range(n_actions)]
@@ -89,12 +90,16 @@ class Agent():
         self.epsilon_dec = epsilon_dec
         self.epsilon_end = epsilon_end
         self.batch_size = batch_size
+        self.iteration = iteration
+        self.iteration_counter = 0
         self.model_file = f_name
 
         """建置資料庫"""
         self.memory = ReplayBuffer(max_mem=mem_size,n_action=n_actions,cls=self.input_shape)
         """建置模型"""
         self.q_eval = build_dqn(lr=self.lr,input_shape=self.input_shape,n_actions=self.n_actions)
+        self.q_target = build_dqn(lr=self.lr,input_shape=self.input_shape,n_actions=self.n_actions)
+        self.q_target.set_weights(self.q_eval.get_weights())
 
 
     def remember(self,state,action,reward,next_state,done):
@@ -110,7 +115,6 @@ class Agent():
             actions = self.q_eval.predict(state)
             print(actions)
             action = np.argmax(actions)
-
 
         return action
 
@@ -128,14 +132,22 @@ class Agent():
             self.epsilon = self.epsilon * self.epsilon_dec if self.epsilon > self.epsilon_end else self.epsilon_end
 
         q_eval = self.q_eval.predict(state)
-        q_next = self.q_eval.predict(next_state)
+        q_target_pre = self.q_target.predict(next_state)
 
         q_target = q_eval.copy()
         batch_index = np.arange(self.batch_size, dtype=np.int32)
 
-        q_target[batch_index, action_indices] = reward + self.gamma * np.max(q_next, axis=1) * done
-
+        # 貝爾曼方程
+        q_target[batch_index, action_indices] = reward + self.gamma * np.max(q_target_pre, axis=1) * done
+        # 更新參數
         _ = self.q_eval.fit(state, q_target, verbose=0)
+
+        """到達指定迭代次數後，複製權重給q_target_net"""
+        self.iteration_counter += 1
+        if (self.iteration_counter == self.iteration):
+            self.q_target.set_weights(self.q_eval.get_weights())
+            self.iteration_counter = 0
+
 
     """儲存模型"""
     def save_model(self):
