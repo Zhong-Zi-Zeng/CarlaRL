@@ -20,7 +20,7 @@ class main:
                          epsilon_end=0.1,
                          mem_size=10000,
                          epsilon_dec=0.96,
-                         input_shape=40)
+                         input_shape=45)
 
         # 期望時速
         self.DESIRED_SPEED = 20
@@ -59,19 +59,22 @@ class main:
         degree_lin = np.linspace(-60, 60, 41)
         degree_state = np.zeros(40)
 
-        index = 0
         for i in range(len(degree_lin)):
             if car_data['way_degree'] < degree_lin[i]:
-                index = i
+                degree_state[i - 1] = 1
                 break
-        degree_state[index - 1] = 1
 
         # 距離部分
-        # car_data['way_degree'] = np.clip(car_data['way_degree'], 0.6, 3.6)
-        # dis_lin = np.linspace(0.6,3.6,5)
+        car_data['way_degree'] = np.clip(car_data['way_degree'], 0.6, 3.6)
+        dis_lin = np.linspace(0.6,3.6,5)
+        dis_state = np.zeros(5)
+        for i in range(len(dis_lin)):
+            if car_data['way_degree'] < degree_lin[i]:
+                dis_state[i - 1] = 1
+                break
 
-        state = degree_state
-        # print(state)
+        state = np.hstack((degree_state,dis_state))
+        print(state)
         return state
 
     def train(self):
@@ -130,7 +133,6 @@ class main:
     def compute_reward(self):
         sensor_data = self.CarlaApi.sensor_data()
         car_data = self.CarlaApi.car_data()
-        collision = sensor_data['collision_sensor']
         done = False
         reward = 0
 
@@ -144,26 +146,22 @@ class main:
 
         # if str(car_data['tl']) == 'Green' and int(car_data['car_speed']) == 0:
         #     reward = -0.5
+
+        # 速度未達標準
         if int(car_data['car_speed']) == 0:
-            reward = -1
+            reward += -1
 
         # 判斷位置獎勵
-        if car_data['way_dis'] > self.MAX_MIDDLE_DIS:
-            reward = -20
+        if car_data['way_dis'] < 0.6 :
+            reward += np.exp(-car_data['way_degree']) * 3
+
+        # 中止訓練
+        if car_data['way_dis'] > self.MAX_MIDDLE_DIS or \
+            abs(car_data['way_degree']) > self.DEGREE_LIMIT or \
+            sensor_data['collision_sensor']:
+            reward = -10
             done = True
 
-        if car_data['way_dis'] < 0.6 and abs(car_data['way_degree']) < 5:
-            reward = 10
-
-        # 判斷角度
-        if abs(car_data['way_degree']) > self.DEGREE_LIMIT:
-            reward = -20
-            done = True
-
-        # 是否有撞擊到東西
-        if collision:
-            reward = -20
-            done = True
 
         return reward, done
 
