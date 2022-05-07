@@ -34,6 +34,7 @@ class main:
                          mem_size=10000,
                          epsilon_dec=0.96,
                          input_shape=15)
+        self.DQN.load_model()
         self.GUI = GUI()
         # 期望時速
         self.DESIRED_SPEED = 20
