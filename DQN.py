@@ -113,7 +113,6 @@ class Agent():
             action = np.random.choice(self.action_space)
         else:
             actions = self.q_eval.predict(state)
-            print(actions)
             action = np.argmax(actions)
 
         return action

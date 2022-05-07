@@ -127,14 +127,23 @@ class CarlaApi:
 
     """產生攝影機"""
     def _spawn_camera(self):
-        """產生bgr攝影機到車上"""
-        bgr_camera_bp = self.blueprint_library.find('sensor.camera.rgb')
-        bgr_camera_bp.set_attribute('image_size_x', str(self.img_width))
-        bgr_camera_bp.set_attribute('image_size_y', str(self.img_height))
-        bgr_camera_transform = carla.Transform(carla.Location(x=1.5, z=2.4))
-        bgr_camera = self.world.spawn_actor(bgr_camera_bp, bgr_camera_transform, attach_to=self.vehicle)
+        """產生前方bgr攝影機"""
+        front_bgr_camera_bp = self.blueprint_library.find('sensor.camera.rgb')
+        front_bgr_camera_bp.set_attribute('image_size_x', str(self.img_width))
+        front_bgr_camera_bp.set_attribute('image_size_y', str(self.img_height))
+        front_bgr_camera_transform = carla.Transform(carla.Location(x=1.5, z=2.4))
+        front_bgr_camera = self.world.spawn_actor(front_bgr_camera_bp, front_bgr_camera_transform, attach_to=self.vehicle)
 
-        self.camera_list.append([bgr_camera, 'bgr_camera'])
+        self.camera_list.append([front_bgr_camera, 'front_bgr_camera'])
+
+        """產生上方bgr攝影機"""
+        top_bgr_camera_bp = self.blueprint_library.find('sensor.camera.rgb')
+        top_bgr_camera_bp.set_attribute('image_size_x', str(self.img_width * 2))
+        top_bgr_camera_bp.set_attribute('image_size_y', str(self.img_height * 2))
+        top_bgr_camera_transform = carla.Transform(carla.Location(x=-5, z=4),carla.Rotation(pitch=-15.0))
+        top_bgr_camera = self.world.spawn_actor(top_bgr_camera_bp, top_bgr_camera_transform, attach_to=self.vehicle)
+
+        self.camera_list.append([top_bgr_camera, 'top_bgr_camera'])
 
         """產生SEG攝影機到車上"""
         seg_camera_bp = self.blueprint_library.find('sensor.camera.semantic_segmentation')
@@ -225,7 +234,8 @@ class CarlaApi:
         while True:
             try:
                 camera_info = self.camera_info_queue.pop()
-                camera_info['bgr_camera'] = process_bgr_frame(camera_info['bgr_camera'])
+                camera_info['front_bgr_camera'] = process_bgr_frame(camera_info['front_bgr_camera'])
+                camera_info['top_bgr_camera'] = process_bgr_frame(camera_info['top_bgr_camera'])
                 camera_info['seg_camera'] = process_seg_frame(camera_info['seg_camera'])
 
                 return camera_info
@@ -255,7 +265,7 @@ class CarlaApi:
 
         # 真正紅綠燈訊息
         tl_data = self.vehicle.get_traffic_light_state()
-        car_info['tl'] = tl_data
+        car_info['tl'] = str(tl_data)
 
         return car_info
 
