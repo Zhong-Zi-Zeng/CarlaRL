@@ -23,7 +23,7 @@ map = world.get_map()
 bp = random.choice(blueprint_library.filter('vehicle'))
 transform = random.choice(world.get_map().get_spawn_points())
 vehicle = world.spawn_actor(bp, transform)
-vehicle.set_autopilot(False)
+vehicle.set_autopilot(True)
 actor_list.append(vehicle)
 
 # ============建立Behavior Agent============
@@ -37,10 +37,6 @@ count = 0
 def callback(img):
     global count
 
-    img = process_bgr_frame(img)
-    cv2.imshow('',img)
-    cv2.waitKey(1)
-
     way = agent.getIncomingWaypoint()
     if way is not None:
         angel = countDegree(vehicle, way)
@@ -49,19 +45,18 @@ def callback(img):
     control = agent.run_step()
     vehicle.apply_control(control)
 
-    # if(count % 20 == 0):
-        # print(count)
+    if(count % 20 == 0):
+        print(count)
 
-        # with open('label.txt','a') as file:
-        #     waypoint = getLaneWaypoint()
-        #     junction = '1' if waypoint.is_junction else '0'
-        #     tl = '1' if str(vehicle.get_traffic_light_state()) == 'Green' else '0'
-        #     print('Write to txt file:',count)
-        #     file.writelines(str(count) + ' ' + junction + ' ' + tl + '\n')
-        #
-        # img.save_to_disk('./data/%d.png'%(count))
+        with open('label.txt','a') as file:
+            junction = '1' if needSlow() else '0'
+            tl = '1' if str(vehicle.get_traffic_light_state()) == 'Green' else '0'
+            print('Write to txt file:',count)
+            file.writelines(str(count) + ' ' + junction + ' ' + tl + '\n')
 
-    # count += 1
+        img.save_to_disk('./data/%d.png'%(count))
+
+    count += 1
 
 # ============建立相機============
 camera_bp = blueprint_library.find('sensor.camera.rgb')
@@ -100,6 +95,21 @@ def countDegree(vehicle, waypoint):
     degree = rad * 180 / np.pi
 
     return degree
+
+
+# ============是否是需要減速的路段(岔路、轉彎路口等)============
+def needSlow():
+    way_list = world.map.get_waypoint(world.player.get_transform().location).next(35)
+    flag = False
+
+    for way in way_list:
+        degree = world.getLaneDegree(way)
+        if abs(degree) > 15:
+            flag = True
+    if flag:
+        return True
+    else:
+        return False
 
 
 try:

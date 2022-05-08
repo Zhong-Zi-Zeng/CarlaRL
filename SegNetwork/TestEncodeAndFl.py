@@ -15,7 +15,7 @@ CarlaApi.wait_for_sim()
 
 try:
     while True:
-        ori_frame = CarlaApi.camera_data()['bgr_camera']
+        ori_frame = CarlaApi.camera_data()['front_bgr_camera']
         result = EncodeAndFlatten.predict(ori_frame)
         print(result)
         cv2.imshow('',ori_frame)

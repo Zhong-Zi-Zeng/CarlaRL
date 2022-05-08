@@ -10,7 +10,7 @@ import os
 import time
 import pygame
 
-
+# 動作對照表
 action_chart = {
     0: 'Forward',
     1: 'Stop',
@@ -34,14 +34,15 @@ class main:
                          mem_size=10000,
                          epsilon_dec=0.96,
                          input_shape=15)
+        # 載入上次權重並繼續訓練
         self.DQN.load_model()
         self.GUI = GUI()
         # 期望時速
         self.DESIRED_SPEED = 20
         # 與道路中心點最遠允許距離
-        self.MAX_MIDDLE_DIS = 4
+        self.MAX_MIDDLE_DIS = 5
         # 允許偏移角度
-        self.DEGREE_LIMIT = 80
+        self.DEGREE_LIMIT = 130
         # 編碼器輸出閥值
         self.THRESHOLD = 0.8
 

@@ -5,7 +5,7 @@ import numpy as np
 
 # 載入權重
 SegModel = SegNetwork()
-SegModel.loadWeights("./ep015-loss0.017-val_acc0.945.h5")
+SegModel.loadWeights("./weights/ep015-loss0.017-val_acc0.945.h5")
 
 CarlaApi = CarlaApi(img_width=400,img_height=300)
 CarlaApi.initial(AutoMode=True)
@@ -13,7 +13,7 @@ CarlaApi.wait_for_sim()
 
 try:
     while True:
-        ori_frame = CarlaApi.camera_data()['bgr_camera']
+        ori_frame = CarlaApi.camera_data()['front_bgr_camera']
         output = SegModel.predict(ori_frame)
         seg_frame = SegModel.parseOutput(output)
         show_frame = np.hstack((seg_frame,ori_frame))

@@ -39,7 +39,7 @@ def countDegree(car_transform, waypoint):
     return degree
 
 class CarlaApi:
-    def __init__(self,img_width,img_height,MIN_MIDDLE_DIS):
+    def __init__(self,img_width,img_height,MIN_MIDDLE_DIS=0.6):
         self.world = None
         self.map = None
         self.blueprint_library = None
