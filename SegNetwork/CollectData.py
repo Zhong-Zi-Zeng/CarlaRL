@@ -1,4 +1,4 @@
-from agents.navigation.behavior_agent import BehaviorAgent
+# from agents.navigation.behavior_agent import BehaviorAgent
 import carla
 import random
 import cv2
@@ -27,23 +27,15 @@ vehicle.set_autopilot(True)
 actor_list.append(vehicle)
 
 # ============建立Behavior Agent============
-agent = BehaviorAgent(vehicle)
-des = random.choice(world.get_map().get_spawn_points())
-agent.set_destination(des.location)
+# agent = BehaviorAgent(vehicle)
+# des = random.choice(world.get_map().get_spawn_points())
+# agent.set_destination(des.location)
 
 # ============回調函式============
-count = 0
+count = 316260
 
 def callback(img):
     global count
-
-    way = agent.getIncomingWaypoint()
-    if way is not None:
-        angel = countDegree(vehicle, way)
-        print(angel)
-
-    control = agent.run_step()
-    vehicle.apply_control(control)
 
     if(count % 20 == 0):
         print(count)
@@ -99,11 +91,11 @@ def countDegree(vehicle, waypoint):
 
 # ============是否是需要減速的路段(岔路、轉彎路口等)============
 def needSlow():
-    way_list = world.map.get_waypoint(world.player.get_transform().location).next(35)
+    way_list = map.get_waypoint(vehicle.get_transform().location).next(35)
     flag = False
 
     for way in way_list:
-        degree = world.getLaneDegree(way)
+        degree = countDegree(vehicle,way)
         if abs(degree) > 15:
             flag = True
     if flag:
