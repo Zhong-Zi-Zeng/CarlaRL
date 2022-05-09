@@ -252,8 +252,8 @@ class CarlaApi:
         car_info['car_speed'] = car_speed
 
         # 方向盤數值
-        steering = self.vehicle.get_control().steer
-        car_info['car_steering'] = steering
+        # steering = self.vehicle.get_control().steer
+        # car_info['car_steering'] = steering
 
         # 車輛與當前路徑點的角度差與距離
         way = self.waypoint_list[0]

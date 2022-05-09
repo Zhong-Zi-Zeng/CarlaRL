@@ -33,9 +33,9 @@ class main:
                          epsilon_end=0.1,
                          mem_size=10000,
                          epsilon_dec=0.96,
-                         input_shape=15)
+                         input_shape=27)
         # 載入上次權重並繼續訓練
-        self.DQN.load_model()
+        # self.DQN.load_model()
         self.GUI = GUI()
         # 期望時速
         self.DESIRED_SPEED = 20
@@ -62,19 +62,28 @@ class main:
         return front_bgr_frame, top_bgr_frame, seg_frame
 
     def get_state(self,bgr_frame):
-        # tl, junction = self.EncodeAndFlattenNetwork.predict(bgr_frame)
-        # tl = np.squeeze(tl)
-        # junction = np.squeeze(junction)
-        # tl = 1 if tl > self.THRESHOLD else 0
-        # junction = 1 if junction > self.THRESHOLD else 0
-
         car_data = self.CarlaApi.car_data()
+
+        # 交通狀況
+        tl, junction = self.EncodeAndFlattenNetwork.predict(bgr_frame)
+        tl = np.squeeze(tl)
+        junction = np.squeeze(junction)
+        tl = 1 if tl > self.THRESHOLD else 0
+        junction = 1 if junction > self.THRESHOLD else 0
+
+        # 車速部分
+        car_data['car_speed'] = np.clip(car_data['car_speed'], 0, 20)
+        speed_lin = np.linspace(0,20,10)
+        speed_state = np.zeros(10)
+        for i in range(len(speed_lin)):
+            if car_data["car_speed"] < speed_lin[i]:
+                speed_state[i - 1] = 1
+                break
 
         # 角度部分
         car_data['way_degree'] = np.clip(car_data['way_degree'], -60, 60)
         degree_lin = np.linspace(-60, 60, 10)
         degree_state = np.zeros(10)
-
         for i in range(len(degree_lin)):
             if car_data['way_degree'] < degree_lin[i]:
                 degree_state[i - 1] = 1
@@ -89,8 +98,27 @@ class main:
                 dis_state[i - 1] = 1
                 break
 
-        state = np.hstack((degree_state,dis_state))
+        state = np.hstack((degree_state,dis_state,speed_state,tl,junction))
         return state
+
+    def show_state(self,bgr_frame):
+        car_data = self.CarlaApi.car_data()
+        del car_data['tl']
+
+        car_data['car_speed'] = str(round(car_data['car_speed'],2)) + ' km/h'
+        car_data['way_degree'] = str(round(car_data['way_degree'],2)) + ' °'
+        car_data['way_dis'] = str(round(car_data['way_dis'],2)) + ' m'
+
+        # 交通狀況
+        Pre_TL, Pre_needslow = self.EncodeAndFlattenNetwork.predict(bgr_frame)
+        Pre_TL = np.squeeze(Pre_TL)
+        Pre_needslow = np.squeeze(Pre_needslow)
+        Pre_TL = 'Green' if Pre_TL > self.THRESHOLD else 'Red'
+        Pre_needslow = 'True' if Pre_needslow > self.THRESHOLD else 'False'
+        car_data['Pre_TL'] = Pre_TL
+        car_data['Pre_needslow'] = Pre_needslow
+
+        return car_data
 
     def train(self):
         self.CarlaApi.initial()
@@ -113,7 +141,9 @@ class main:
                     # 顯示影像
                     self.GUI.clear()
                     self.GUI.draw_image(top_bgr_frame)
-                    self.GUI.draw_text_info(self.CarlaApi.car_data(),action=action_chart[action],episode=i)
+                    self.GUI.draw_text_info(self.show_state(front_bgr_frame),
+                                            action=action_chart[action],
+                                            episode=i)
                     if self.GUI.should_quit():
                         return
 
@@ -132,6 +162,7 @@ class main:
                     # 更改狀態
                     state = next_state
                     top_bgr_frame = next_top_bgr_frame
+                    front_bgr_frame = next_front_bgr_frame
 
                     pygame.display.update()
 

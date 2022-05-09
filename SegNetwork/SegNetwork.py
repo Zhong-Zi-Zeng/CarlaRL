@@ -33,7 +33,8 @@ class SegNetwork:
         return self.seg.predict(input/255)[0]
 
     def parseOutput(self,output):
-        # 感興趣的類別
+        # 感興趣的類別del car_data['tl']
+        #         del car_data['del']
         InterestClass = {
             '0': (0, 0, 0),  # 未標記
             '1': (60, 20, 220),  # 行人

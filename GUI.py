@@ -33,11 +33,7 @@ class GUI:
         # 速度、目標點距離、目標點角度、目前輸出命令、訓練次數
         for (key,value),(x,y) in zip(text_info.items(), pos):
             font = pygame.font.Font(None, 30)
-            if isinstance(value,str):
-                fontSurface = font.render(f'{key}: {value}', True, (255,255,255))
-            else:
-                fontSurface = font.render(f'{key}: {value:.2f}', True, (255, 255, 255))
-
+            fontSurface = font.render(f'{key}: {value}', True, (255,255,255))
             self.win_screen.blit(fontSurface,(x,y))
 
     """清空畫面"""
