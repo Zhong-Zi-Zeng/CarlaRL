@@ -33,9 +33,9 @@ class main:
                          epsilon_end=0.1,
                          mem_size=10000,
                          epsilon_dec=0.96,
-                         input_shape=27)
+                         input_shape=16)
         # 載入上次權重並繼續訓練
-        # self.DQN.load_model()
+        self.DQN.load_model()
         self.GUI = GUI()
         # 期望時速
         self.DESIRED_SPEED = 20
@@ -65,20 +65,21 @@ class main:
         car_data = self.CarlaApi.car_data()
 
         # 交通狀況
-        tl, junction = self.EncodeAndFlattenNetwork.predict(bgr_frame)
-        tl = np.squeeze(tl)
-        junction = np.squeeze(junction)
-        tl = 1 if tl > self.THRESHOLD else 0
-        junction = 1 if junction > self.THRESHOLD else 0
+        junction = 1 if car_data['need_slow'] else 0
+        # tl, junction = self.EncodeAndFlattenNetwork.predict(bgr_frame)
+        # tl = np.squeeze(tl)
+        # junction = np.squeeze(junction)
+        # tl = 1 if tl > self.THRESHOLD else 0
+        # junction = 1 if junction > self.THRESHOLD else 0
 
         # 車速部分
-        car_data['car_speed'] = np.clip(car_data['car_speed'], 0, 20)
-        speed_lin = np.linspace(0,20,10)
-        speed_state = np.zeros(10)
-        for i in range(len(speed_lin)):
-            if car_data["car_speed"] < speed_lin[i]:
-                speed_state[i - 1] = 1
-                break
+        # car_data['car_speed'] = np.clip(car_data['car_speed'], 0, 20)
+        # speed_lin = np.linspace(0,20,10)
+        # speed_state = np.zeros(10)
+        # for i in range(len(speed_lin)):
+        #     if car_data["car_speed"] < speed_lin[i]:
+        #         speed_state[i - 1] = 1
+        #         break
 
         # 角度部分
         car_data['way_degree'] = np.clip(car_data['way_degree'], -60, 60)
@@ -98,7 +99,7 @@ class main:
                 dis_state[i - 1] = 1
                 break
 
-        state = np.hstack((degree_state,dis_state,speed_state,tl,junction))
+        state = np.hstack((degree_state,dis_state,junction))
         return state
 
     def show_state(self,bgr_frame):
@@ -110,13 +111,13 @@ class main:
         car_data['way_dis'] = str(round(car_data['way_dis'],2)) + ' m'
 
         # 交通狀況
-        Pre_TL, Pre_needslow = self.EncodeAndFlattenNetwork.predict(bgr_frame)
-        Pre_TL = np.squeeze(Pre_TL)
-        Pre_needslow = np.squeeze(Pre_needslow)
-        Pre_TL = 'Green' if Pre_TL > self.THRESHOLD else 'Red'
-        Pre_needslow = 'True' if Pre_needslow > self.THRESHOLD else 'False'
-        car_data['Pre_TL'] = Pre_TL
-        car_data['Pre_needslow'] = Pre_needslow
+        # Pre_TL, Pre_needslow = self.EncodeAndFlattenNetwork.predict(bgr_frame)
+        # Pre_TL = np.squeeze(Pre_TL)
+        # Pre_needslow = np.squeeze(Pre_needslow)
+        # Pre_TL = 'Green' if Pre_TL > self.THRESHOLD else 'Red'
+        # Pre_needslow = 'True' if Pre_needslow > self.THRESHOLD else 'False'
+        # car_data['Pre_TL'] = Pre_TL
+        # car_data['Pre_needslow'] = Pre_needslow
 
         return car_data
 

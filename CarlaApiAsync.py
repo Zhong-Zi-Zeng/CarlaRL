@@ -267,6 +267,15 @@ class CarlaApi:
         tl_data = self.vehicle.get_traffic_light_state()
         car_info['tl'] = str(tl_data)
 
+        # 是否需要減速
+        car_info['need_slow'] = 0
+        if len(self.waypoint_list) > 4:
+            for way in self.waypoint_list[:4]:
+                degree = countDegree(self.vehicle.get_transform(),way)
+                if degree > 15:
+                    car_info['need_slow'] = 1
+                    break
+
         return car_info
 
     """返回感測器數據"""
