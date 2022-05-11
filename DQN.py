@@ -154,7 +154,7 @@ class Agent():
 
     """載入模型"""
     def load_model(self):
-        self.q_eval = load_model(self.model_file)
+        self.q_eval.load_weights(self.model_file)
         self.q_target.set_weights(self.q_eval.get_weights())
 
 

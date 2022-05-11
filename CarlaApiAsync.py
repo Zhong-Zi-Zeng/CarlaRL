@@ -165,7 +165,7 @@ class CarlaApi:
     """生成路徑點"""
     def _build_waypoint(self,distance=200,sample=3):
         self.waypoint_list = []
-        first_way = self.map.get_waypoint(self.vehicle_transform.location).next(sample)
+        first_way = self.map.get_waypoint(self.vehicle_transform.get_transform().location).next(sample)
         self.waypoint_list.append(first_way[0])
 
         for i in range(distance // sample):

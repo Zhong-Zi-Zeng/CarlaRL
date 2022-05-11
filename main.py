@@ -24,16 +24,16 @@ class main:
     def __init__(self):
         self.CarlaApi = CarlaApi(img_width=400,
                                  img_height=300,
-                                 MIN_MIDDLE_DIS=0.6)
+                                 MIN_MIDDLE_DIS=0.75)
         self.DQN = Agent(lr=0.0005,
                          gamma=0.99,
                          n_actions=6,
                          epsilon=0.3,
                          batch_size=16,
                          epsilon_end=0.1,
-                         mem_size=10000,
+                         mem_size=100000,
                          epsilon_dec=0.96,
-                         input_shape=16)
+                         input_shape=17)
         # 載入上次權重並繼續訓練
         self.DQN.load_model()
         self.GUI = GUI()
@@ -91,15 +91,15 @@ class main:
                 break
 
         # 距離部分
-        car_data['way_degree'] = np.clip(car_data['way_degree'], 0.6, 3.6)
-        dis_lin = np.linspace(0.6,3.6,5)
+        car_data['way_dis'] = np.clip(car_data['way_dis'], 0.6, 5)
+        dis_lin = np.linspace(0.6,5,5)
         dis_state = np.zeros(5)
         for i in range(len(dis_lin)):
             if car_data['way_dis'] < dis_lin[i]:
                 dis_state[i - 1] = 1
                 break
 
-        state = np.hstack((degree_state,dis_state,junction))
+        state = np.hstack((degree_state,dis_state,junction,car_data['car_speed']))
         return state
 
     def show_state(self,bgr_frame):
@@ -222,7 +222,7 @@ class main:
                 0:前進、1:煞車、2:半左轉、3:半右轉、4:全左轉、5:全右轉
         """
         control = carla.VehicleControl()
-        control.throttle = 0.4
+        control.throttle = 0.35
         control.brake = 0
         if (action == 0):
             control.steer = 0.0
