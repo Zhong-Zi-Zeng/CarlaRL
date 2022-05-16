@@ -38,7 +38,7 @@ class main:
         # self.DQN.load_model()
         self.GUI = GUI()
         # 期望時速
-        self.DESIRED_SPEED = 20
+        self.DESIRED_SPEED = 8
         # 與道路中心點最遠允許距離
         self.MAX_MIDDLE_DIS = 5
         # 允許偏移角度
@@ -46,7 +46,11 @@ class main:
         # 編碼器輸出閥值
         self.THRESHOLD = 0.8
 
+        # 總訓練次數
         self.EPISODES = 100000
+        self.pre_tl = None
+        self.pre_junction = None
+
         self.now_path = os.getcwd().replace('\\','/') + '/SegNetwork'
         self.EncodeAndFlattenNetwork = Network(now_path=self.now_path).buildModel()
         self.EncodeAndFlattenNetwork.load_weights()
@@ -65,21 +69,11 @@ class main:
         car_data = self.CarlaApi.car_data()
 
         # 交通狀況
-        # junction = 1 if car_data['need_slow'] else 0
-        tl, junction = self.EncodeAndFlattenNetwork.predict(bgr_frame)
-        # tl = np.squeeze(tl)
-        junction = np.squeeze(junction)
-        # tl = 1 if tl > self.THRESHOLD else 0
-        junction = 1 if junction > self.THRESHOLD else 0
-
-        # 車速部分
-        # car_data['car_speed'] = np.clip(car_data['car_speed'], 0, 20)
-        # speed_lin = np.linspace(0,20,10)
-        # speed_state = np.zeros(10)
-        # for i in range(len(speed_lin)):
-        #     if car_data["car_speed"] < speed_lin[i]:
-        #         speed_state[i - 1] = 1
-        #         break
+        self.pre_tl, self.pre_junction = self.EncodeAndFlattenNetwork.predict(bgr_frame)
+        self.pre_tl = np.squeeze(self.pre_tl)
+        self.pre_junction = np.squeeze(self.pre_junction)
+        tl = 1 if self.pre_tl > self.THRESHOLD else 0
+        junction = 1 if self.pre_junction > self.THRESHOLD else 0
 
         # 角度部分
         car_data['way_degree'] = np.clip(car_data['way_degree'], -60, 60)
@@ -99,10 +93,10 @@ class main:
                 dis_state[i - 1] = 1
                 break
 
-        state = np.hstack((degree_state,dis_state,junction,car_data['car_speed']))
+        state = np.hstack((degree_state,dis_state,tl,junction,car_data['car_speed']))
         return state
 
-    def show_state(self,bgr_frame):
+    def show_state(self):
         car_data = self.CarlaApi.car_data()
         del car_data['tl']
 
@@ -111,12 +105,9 @@ class main:
         car_data['way_dis'] = str(round(car_data['way_dis'],2)) + ' m'
 
         # 交通狀況
-        Pre_TL, Pre_needslow = self.EncodeAndFlattenNetwork.predict(bgr_frame)
-        # Pre_TL = np.squeeze(Pre_TL)
-        Pre_needslow = np.squeeze(Pre_needslow)
-        # Pre_TL = 'Green' if Pre_TL > self.THRESHOLD else 'Red'
-        Pre_needslow = 'True' if Pre_needslow > self.THRESHOLD else 'False'
-        # car_data['Pre_TL'] = Pre_TL
+        Pre_TL = 'Green' if self.pre_tl > self.THRESHOLD else 'Red'
+        Pre_needslow = 'True' if self.pre_junction > self.THRESHOLD else 'False'
+        car_data['Pre_TL'] = Pre_TL
         car_data['Pre_needslow'] = Pre_needslow
 
         return car_data
@@ -142,7 +133,7 @@ class main:
                     # 顯示影像
                     self.GUI.clear()
                     self.GUI.draw_image(top_bgr_frame)
-                    self.GUI.draw_text_info(self.show_state(front_bgr_frame),
+                    self.GUI.draw_text_info(self.show_state(),
                                             action=action_chart[action],
                                             episode=i)
                     if self.GUI.should_quit():
@@ -163,7 +154,6 @@ class main:
                     # 更改狀態
                     state = next_state
                     top_bgr_frame = next_top_bgr_frame
-                    front_bgr_frame = next_front_bgr_frame
 
                     pygame.display.update()
 
@@ -188,19 +178,23 @@ class main:
         reward = 0
 
         # 紅燈時改變速度期望值
-        # if str(car_data['tl']) == 'Red':
-        #     if car_data['car_speed'] == 0:
-        #         reward += 1
-        # elif str(car_data['tl']) == 'Green':
-        #     if int(car_data['car_speed']) == self.DESIRED_SPEED:
-        #         reward += 1
-
+        if str(car_data['tl']) == 'Red':
+            if car_data['car_speed'] == 0:
+                reward += 10
+            else:
+                done = True
+                reward = -10
+        elif str(car_data['tl']) == 'Green':
+            if int(car_data['car_speed']) == self.DESIRED_SPEED:
+                reward += 1
+            else:
+                reward += -1.5
         # if str(car_data['tl']) == 'Green' and int(car_data['car_speed']) == 0:
         #     reward = -0.5
 
         # 速度未達標準
-        if int(car_data['car_speed']) == 0:
-            reward += -1.5
+        # if int(car_data['car_speed']) == 0:
+        #     reward += -1.5
 
         # 判斷位置獎勵
         reward += np.exp(-abs(car_data['way_degree']) / 15) * 1.5

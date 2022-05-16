@@ -78,7 +78,7 @@ class Agent():
                  ,mem_size
                  ,epsilon_dec
                  ,input_shape
-                 ,iteration=200
+                 ,iteration=100
                  ,f_name="./dqn_model.h5"):
 
         self.action_space = [i for i in range(n_actions)]
