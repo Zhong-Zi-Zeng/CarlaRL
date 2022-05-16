@@ -28,14 +28,14 @@ class main:
         self.DQN = Agent(lr=0.0005,
                          gamma=0.99,
                          n_actions=6,
-                         epsilon=0.3,
+                         epsilon=0.4,
                          batch_size=16,
                          epsilon_end=0.1,
                          mem_size=100000,
                          epsilon_dec=0.96,
                          input_shape=17)
         # 載入上次權重並繼續訓練
-        self.DQN.load_model()
+        # self.DQN.load_model()
         self.GUI = GUI()
         # 期望時速
         self.DESIRED_SPEED = 20
@@ -65,12 +65,12 @@ class main:
         car_data = self.CarlaApi.car_data()
 
         # 交通狀況
-        junction = 1 if car_data['need_slow'] else 0
-        # tl, junction = self.EncodeAndFlattenNetwork.predict(bgr_frame)
+        # junction = 1 if car_data['need_slow'] else 0
+        tl, junction = self.EncodeAndFlattenNetwork.predict(bgr_frame)
         # tl = np.squeeze(tl)
-        # junction = np.squeeze(junction)
+        junction = np.squeeze(junction)
         # tl = 1 if tl > self.THRESHOLD else 0
-        # junction = 1 if junction > self.THRESHOLD else 0
+        junction = 1 if junction > self.THRESHOLD else 0
 
         # 車速部分
         # car_data['car_speed'] = np.clip(car_data['car_speed'], 0, 20)
@@ -111,13 +111,13 @@ class main:
         car_data['way_dis'] = str(round(car_data['way_dis'],2)) + ' m'
 
         # 交通狀況
-        # Pre_TL, Pre_needslow = self.EncodeAndFlattenNetwork.predict(bgr_frame)
+        Pre_TL, Pre_needslow = self.EncodeAndFlattenNetwork.predict(bgr_frame)
         # Pre_TL = np.squeeze(Pre_TL)
-        # Pre_needslow = np.squeeze(Pre_needslow)
+        Pre_needslow = np.squeeze(Pre_needslow)
         # Pre_TL = 'Green' if Pre_TL > self.THRESHOLD else 'Red'
-        # Pre_needslow = 'True' if Pre_needslow > self.THRESHOLD else 'False'
+        Pre_needslow = 'True' if Pre_needslow > self.THRESHOLD else 'False'
         # car_data['Pre_TL'] = Pre_TL
-        # car_data['Pre_needslow'] = Pre_needslow
+        car_data['Pre_needslow'] = Pre_needslow
 
         return car_data
 
@@ -168,7 +168,7 @@ class main:
                     pygame.display.update()
 
                 total_reward_list.append(total_reward)
-                if i % 50 == 0:
+                if i % 20 == 0:
                     self.DQN.save_model()
 
                 self.CarlaApi.reset()

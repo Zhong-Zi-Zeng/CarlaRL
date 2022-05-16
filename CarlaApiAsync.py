@@ -163,9 +163,9 @@ class CarlaApi:
         self.sensor_list.append([collision_sensor,'collision_sensor'])
 
     """生成路徑點"""
-    def _build_waypoint(self,distance=200,sample=3):
+    def _build_waypoint(self,distance=10000,sample=3):
         self.waypoint_list = []
-        first_way = self.map.get_waypoint(self.vehicle_transform.get_transform().location).next(sample)
+        first_way = self.map.get_waypoint(self.vehicle_transform.location).next(sample)
         self.waypoint_list.append(first_way[0])
 
         for i in range(distance // sample):
@@ -268,13 +268,13 @@ class CarlaApi:
         car_info['tl'] = str(tl_data)
 
         # 是否需要減速
-        car_info['need_slow'] = 0
-        if len(self.waypoint_list) > 4:
-            for way in self.waypoint_list[:4]:
-                degree = countDegree(self.vehicle.get_transform(),way)
-                if degree > 15:
-                    car_info['need_slow'] = 1
-                    break
+        # car_info['need_slow'] = 0
+        # if len(self.waypoint_list) > 4:
+        #     for oth in self.waypoint_list[1:3]:
+        #         degree = countDegree(oth.transform,way)
+        #         if degree > 15:
+        #             car_info['need_slow'] = 1
+        #             break
 
         return car_info
 
