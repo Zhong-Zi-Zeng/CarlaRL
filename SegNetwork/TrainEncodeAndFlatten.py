@@ -48,7 +48,7 @@ def generate(data,batch_size=5):
         for _ in range(batch_size):
             # 圖片名稱
             img_name = data[i]
-
+            # print(img_name)
             # X_train圖片處理
             ori_img = cv2.imread(x_train_path + '/' + img_name)
             ori_img = ori_img[np.newaxis,:]
@@ -65,7 +65,7 @@ def generate(data,batch_size=5):
 
 
 def readSpeficyRow(row):
-    row = int(row) / 20 + 1
+    row = int(row) / 5 + 1
     str = linecache.getline('label.txt', int(row)).rstrip().split(' ')
     Junction_label = int(str[1])
     Tl_label = int(str[2])
@@ -97,7 +97,7 @@ early_stopping = EarlyStopping(
 EncodeAndFlattenNetwork.model.fit(generate(x_train_name[:NUM_TRAINS],batch_size=BATCH_SIZE),
             steps_per_epoch=max(1, NUM_TRAINS // BATCH_SIZE),
             validation_data=generate(x_train_name[NUM_TRAINS:], batch_size=BATCH_SIZE),
-            epochs=20,
+            epochs=30,
             validation_steps=max(1, len(x_train_name[NUM_TRAINS:]) // BATCH_SIZE),
             initial_epoch=0,
             callbacks=[learning_rate_reduction,checkpoint_period,early_stopping])

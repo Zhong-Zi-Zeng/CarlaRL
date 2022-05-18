@@ -52,15 +52,16 @@ def callback(img):
     bgr_image_queue.append(img)
 
 # ============寫入label.txt============
-count = 0
+count = 42665
 def writeLabel(img):
     global count
-    if(count % 20 == 0):
+    if(count % 5 == 0):
         # print(count)
         with open('label.txt','a') as file:
             junction = '1' if need_slow else '0'
             tl = '1' if TL else '0'
-            print('Write to txt file:',count)
+            # print('Write to txt file:',count)
+
             file.writelines(str(count) + ' ' + junction + ' ' + tl + '\n')
 
         cv2.imwrite('./data/%d.png'%(count),img)
@@ -191,10 +192,11 @@ try:
             draw_image(img)
             pygame.display.update()
 
-            need_slow_str = 'NeedSlow' if needSlow() else 'False'
+            need_slow = 1 if needSlow() else 0
+            need_slow_str = 'NeedSlow' if need_slow else 'False'
             TL_str = 'Green' if TL else 'Red'
             print(need_slow_str, TL_str)
-            # writeLabel(img)
+            writeLabel(img)
 
 finally:
     for actor in actor_list:
