@@ -1,8 +1,25 @@
-# from agents.navigation.behavior_agent import BehaviorAgent
 import carla
 import random
 import cv2
+import pygame
+from pygame import K_UP
+from pygame import K_DOWN
+from pygame import K_LEFT
+from pygame import K_RIGHT
+from pygame import K_e
+from pygame import K_f
 import numpy as np
+from collections import deque
+
+# 初始化pygame
+pygame.init()
+clock = pygame.time.Clock()
+win_screen = pygame.display.set_mode((400, 300))
+
+# 繪製影像
+def draw_image(bgr_frame):
+    image_surface = pygame.surfarray.make_surface(bgr_frame[:,:,::-1].swapaxes(0, 1))
+    win_screen.blit(image_surface,(0,0))
 
 # 添加物件都會存於模擬環境中，當程式結束時需要刪除所有物件
 # 不然下次再新增時可能會報錯誤
@@ -23,30 +40,30 @@ map = world.get_map()
 bp = random.choice(blueprint_library.filter('vehicle'))
 transform = random.choice(world.get_map().get_spawn_points())
 vehicle = world.spawn_actor(bp, transform)
-vehicle.set_autopilot(True)
+vehicle.set_autopilot(False)
+control = carla.VehicleControl()
+steer_cache = 0.0
 actor_list.append(vehicle)
 
-# ============建立Behavior Agent============
-# agent = BehaviorAgent(vehicle)
-# des = random.choice(world.get_map().get_spawn_points())
-# agent.set_destination(des.location)
-
 # ============回調函式============
-count = 316260
-
+bgr_image_queue = deque(maxlen=5)
 def callback(img):
+    img = process_bgr_frame(img)
+    bgr_image_queue.append(img)
+
+# ============寫入label.txt============
+count = 0
+def writeLabel(img):
     global count
-
     if(count % 20 == 0):
-        print(count)
-
+        # print(count)
         with open('label.txt','a') as file:
-            junction = '1' if needSlow() else '0'
-            tl = '1' if str(vehicle.get_traffic_light_state()) == 'Green' else '0'
+            junction = '1' if need_slow else '0'
+            tl = '1' if TL else '0'
             print('Write to txt file:',count)
             file.writelines(str(count) + ' ' + junction + ' ' + tl + '\n')
 
-        img.save_to_disk('./data/%d.png'%(count))
+        cv2.imwrite('./data/%d.png'%(count),img)
 
     count += 1
 
@@ -104,10 +121,71 @@ def needSlow():
         return False
 
 
+# ============手動控制車輛============
+def parseKeyControl(keys, milliseconds):
+    global steer_cache
+
+    if keys[K_UP]:
+        control.throttle = min(control.throttle + 0.01, 1.00)
+    else:
+        control.throttle = 0.0
+
+    if keys[K_DOWN]:
+        control.brake = min(control.brake + 0.2, 1)
+    else:
+        control.brake = 0
+
+    steer_increment = 5e-4 * milliseconds
+    if keys[K_LEFT]:
+        if steer_cache > 0:
+            steer_cache = 0
+        else:
+            steer_cache -= steer_increment
+    elif keys[K_RIGHT]:
+        if steer_cache < 0:
+            steer_cache = 0
+        else:
+            steer_cache += steer_increment
+    else:
+        steer_cache = 0.0
+    steer_cache = min(0.7, max(-0.7, steer_cache))
+    control.steer = round(steer_cache, 1)
+    vehicle.apply_control(control)
+
+need_slow = 0
+TL = 1
 try:
-    while True:
-        if(input() is not None):
-            break
+    run = True
+    while run:
+        clock.tick_busy_loop(60)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                run = False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == K_e:
+                    if need_slow:
+                        need_slow = 0
+                    else:
+                        need_slow = 1
+                elif event.key == K_f:
+                    if TL:
+                        TL = 0
+                    else:
+                        TL = 1
+            elif event.type == pygame.KEYUP:
+                if event.key == pygame.K_ESCAPE:
+                    run = False
+
+        parseKeyControl(pygame.key.get_pressed(), clock.get_time())
+
+        if len(bgr_image_queue):
+            img = bgr_image_queue.pop()
+            draw_image(img)
+            pygame.display.update()
+
+            print(need_slow, TL)
+            writeLabel(img)
 
 finally:
     for actor in actor_list:

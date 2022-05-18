@@ -150,7 +150,7 @@ class Agent():
 
     """儲存模型"""
     def save_model(self):
-        self.q_eval.save(self.model_file)
+        self.q_eval.save_weights(self.model_file)
 
     """載入模型"""
     def load_model(self):
