@@ -37,7 +37,7 @@ blueprint_library = world.get_blueprint_library()
 map = world.get_map()
 
 # ============車子============
-bp = random.choice(blueprint_library.filter('vehicle'))
+bp = blueprint_library.filter('vehicle')[0]
 transform = random.choice(world.get_map().get_spawn_points())
 vehicle = world.spawn_actor(bp, transform)
 vehicle.set_autopilot(False)
@@ -87,8 +87,8 @@ def process_bgr_frame(bgr_frame):
 
 
 # ============計算與waypoint的角度============
-def countDegree(vehicle, waypoint):
-    car_transform = vehicle.get_transform()
+def countDegree(car_transform, waypoint):
+    # car_transform = p.get_transform()
     car_mat = car_transform.get_matrix()
     car_dir = np.array([car_mat[0][0], car_mat[1][0]], dtype=np.float32)
 
@@ -108,17 +108,19 @@ def countDegree(vehicle, waypoint):
 
 # ============是否是需要減速的路段(岔路、轉彎路口等)============
 def needSlow():
-    way_list = map.get_waypoint(vehicle.get_transform().location).next(35)
-    flag = False
+    way_list = []
+    first = map.get_waypoint(vehicle.get_transform().location).next(3)[0]
+    way_list.append(first)
 
-    for way in way_list:
-        degree = countDegree(vehicle,way)
-        if abs(degree) > 15:
-            flag = True
-    if flag:
-        return True
-    else:
-        return False
+    next_way = first.next(30)
+    way_list += next_way
+
+    for way in way_list[1:]:
+        degree = countDegree(first.transform,way)
+        if abs(degree) > 10:
+            return True
+
+    return False
 
 
 # ============手動控制車輛============
@@ -156,6 +158,7 @@ need_slow = 0
 TL = 1
 try:
     run = True
+    flag = False
     while run:
         clock.tick_busy_loop(60)
 
@@ -163,12 +166,7 @@ try:
             if event.type == pygame.QUIT:
                 run = False
             elif event.type == pygame.KEYDOWN:
-                if event.key == K_e:
-                    if need_slow:
-                        need_slow = 0
-                    else:
-                        need_slow = 1
-                elif event.key == K_f:
+                if event.key == K_f:
                     if TL:
                         TL = 0
                     else:
@@ -179,13 +177,24 @@ try:
 
         parseKeyControl(pygame.key.get_pressed(), clock.get_time())
 
+
+        tlState = str(vehicle.get_traffic_light_state())
+        if tlState == 'Red':
+            flag = True
+        elif tlState == 'Green' and TL == 0 and flag:
+            flag = False
+            TL = 1
+
+
         if len(bgr_image_queue):
             img = bgr_image_queue.pop()
             draw_image(img)
             pygame.display.update()
 
-            print(need_slow, TL)
-            writeLabel(img)
+            need_slow_str = 'NeedSlow' if needSlow() else 'False'
+            TL_str = 'Green' if TL else 'Red'
+            print(need_slow_str, TL_str)
+            # writeLabel(img)
 
 finally:
     for actor in actor_list:
