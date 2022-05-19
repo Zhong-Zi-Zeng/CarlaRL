@@ -2,6 +2,7 @@ import carla
 import random
 import cv2
 import pygame
+import math
 from pygame import K_UP
 from pygame import K_DOWN
 from pygame import K_LEFT
@@ -9,9 +10,6 @@ from pygame import K_RIGHT
 from pygame import K_f
 import numpy as np
 from collections import deque
-
-# 初始化pygame
-pygame.init()
 
 
 
@@ -47,7 +45,64 @@ def countDegree(car_transform, waypoint):
     else:
         raise ValueError('car_transform or waypoint is not correct object.')
 
+# ============查詢紅綠燈觸發框的位置============
+def get_trafficlight_trigger_location(traffic_light):
+    """
+    Calculates the yaw of the waypoint that represents the trigger volume of the traffic light
+    """
+    def rotate_point(point, radians):
+        """
+        rotate a given point by a given angle
+        """
+        rotated_x = math.cos(radians) * point.x - math.sin(radians) * point.y
+        rotated_y = math.sin(radians) * point.x - math.cos(radians) * point.y
 
+        return carla.Vector3D(rotated_x, rotated_y, point.z)
+
+    base_transform = traffic_light.get_transform()
+    base_rot = base_transform.rotation.yaw
+    area_loc = base_transform.transform(traffic_light.trigger_volume.location)
+    area_ext = traffic_light.trigger_volume.extent
+
+    point = rotate_point(carla.Vector3D(0, 0, area_ext.z), math.radians(base_rot))
+    point_location = area_loc + carla.Location(x=point.x, y=point.y)
+
+    return carla.Location(point_location.x, point_location.y, point_location.z)
+
+# ============查詢物件與物件間的角度與距離是否在指定範圍內============
+def is_within_distance(target_transform, reference_transform, max_distance, angle_interval=None):
+    """
+    Check if a location is both within a certain distance from a reference object.
+    By using 'angle_interval', the angle between the location and reference transform
+    will also be tkaen into account, being 0 a location in front and 180, one behind.
+
+    :param target_transform: location of the target object
+    :param reference_transform: location of the reference object
+    :param max_distance: maximum allowed distance
+    :param angle_interval: only locations between [min, max] angles will be considered. This isn't checked by default.
+    :return: boolean
+    """
+    target_vector = np.array([
+        target_transform.location.x - reference_transform.location.x,
+        target_transform.location.y - reference_transform.location.y
+    ])
+    norm_target = np.linalg.norm(target_vector)
+
+    # print(norm_target)
+    if norm_target < 0.0001:
+        return True
+
+    if norm_target > max_distance:
+        return False
+
+    min_angle = angle_interval[0]
+    max_angle = angle_interval[1]
+
+    fwd = reference_transform.get_forward_vector()
+    forward_vector = np.array([fwd.x, fwd.y])
+    angle = math.degrees(math.acos(np.clip(np.dot(forward_vector, target_vector) / norm_target, -1., 1.)))
+
+    return min_angle < angle < max_angle
 
 class Collecter():
     def __init__(self,AutoMode=False):
@@ -59,6 +114,7 @@ class Collecter():
         self.map = None
         self.vehicle = None
         self.TL_list = None
+        self.last_traffic_light = None
         self.fileName = 0
         self.clock = pygame.time.Clock()
         self.win_screen = pygame.display.set_mode((400, 300))
@@ -67,7 +123,6 @@ class Collecter():
         self.initial()
         self.control = carla.VehicleControl()
         self.steer_cache = 0.0
-
 
     """模擬環境初始化"""
     def initial(self):
@@ -154,6 +209,33 @@ class Collecter():
 
         return False
 
+    """紅綠燈信號"""
+    def affected_by_traffic_light(self):
+        ego_vehicle_location = self.vehicle.get_location()
+        ego_vehicle_waypoint = self.map.get_waypoint(ego_vehicle_location)
+
+        for traffic_light in self.TL_list:
+            object_location = get_trafficlight_trigger_location(traffic_light)
+            object_waypoint = self.map.get_waypoint(object_location)
+
+            if object_waypoint.road_id != ego_vehicle_waypoint.road_id:
+                continue
+
+            ve_dir = ego_vehicle_waypoint.transform.get_forward_vector()
+            wp_dir = object_waypoint.transform.get_forward_vector()
+            dot_ve_wp = ve_dir.x * wp_dir.x + ve_dir.y * wp_dir.y + ve_dir.z * wp_dir.z
+
+            dis = self.vehicle.get_transform().location.distance(object_location)
+            print(dis)
+            if dot_ve_wp < 0:
+                continue
+
+            if is_within_distance(object_waypoint.transform, self.vehicle.get_transform(), 20, [0, 90]):
+                self.last_traffic_light = traffic_light
+                return (True, traffic_light)
+
+        return (False, None)
+
     """手動控制車輛"""
     def parseKeyControl(self,keys, milliseconds):
         if keys[K_UP]:
@@ -183,10 +265,14 @@ class Collecter():
         self.control.steer = round(self.steer_cache, 1)
         self.vehicle.apply_control(self.control)
 
+
+
     """銷毀生成物件"""
     def destroy(self):
         for actor in self.actor_list:
             actor.destroy()
+
+
 
 # trafficLight = []
 # for landmark in map.get_all_landmarks():
@@ -197,6 +283,7 @@ class Collecter():
 #     print(t.waypoint)
 
 
+pygame.init()
 collecter = Collecter(AutoMode=False)
 
 try:
@@ -208,12 +295,6 @@ try:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
-            elif event.type == pygame.KEYDOWN:
-                if event.key == K_f:
-                    if TL:
-                        TL = 0
-                    else:
-                        TL = 1
             elif event.type == pygame.KEYUP:
                 if event.key == pygame.K_ESCAPE:
                     run = False
@@ -223,6 +304,10 @@ try:
 
         if img is not None:
             collecter.draw_image(img)
+
+        tl = collecter.affected_by_traffic_light()
+        if tl[1] is not None:
+            print(tl[1].state, 'dis:')
 
 
         pygame.display.update()
