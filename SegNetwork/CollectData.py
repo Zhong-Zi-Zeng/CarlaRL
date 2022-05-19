@@ -63,7 +63,6 @@ def get_trafficlight_trigger_location(traffic_light):
     base_rot = base_transform.rotation.yaw
     area_loc = base_transform.transform(traffic_light.trigger_volume.location)
     area_ext = traffic_light.trigger_volume.extent
-
     point = rotate_point(carla.Vector3D(0, 0, area_ext.z), math.radians(base_rot))
     point_location = area_loc + carla.Location(x=point.x, y=point.y)
 
@@ -88,10 +87,6 @@ def is_within_distance(target_transform, reference_transform, max_distance, angl
     ])
     norm_target = np.linalg.norm(target_vector)
 
-    # print(norm_target)
-    if norm_target < 0.0001:
-        return True
-
     if norm_target > max_distance:
         return False
 
@@ -102,7 +97,7 @@ def is_within_distance(target_transform, reference_transform, max_distance, angl
     forward_vector = np.array([fwd.x, fwd.y])
     angle = math.degrees(math.acos(np.clip(np.dot(forward_vector, target_vector) / norm_target, -1., 1.)))
 
-    return min_angle < angle < max_angle
+    return min_angle < angle < max_angle, norm_target, angle
 
 class Collecter():
     def __init__(self,AutoMode=False):
@@ -141,7 +136,6 @@ class Collecter():
         client.set_timeout(30.0)
 
         self.world = client.get_world()
-        # self.world.tick()
         self.bp = self.world.get_blueprint_library()
         self.map = self.world.get_map()
 
@@ -183,12 +177,11 @@ class Collecter():
         return
 
     """寫入label及儲存照片"""
-    def writeLabel(self,img,need_slow,TL):
+    def writeLabel(self,img,need_slow,TL,TL_dis):
         if self.fileName % 5 == 0:
             with open('label.txt','a') as file:
-                junction = '1' if need_slow else '0'
-                tl = '1' if TL else '0'
-                file.writelines(str(self.fileName) + ' ' + junction + ' ' + tl + '\n')
+
+                file.writelines(str(self.fileName) + ' ' + need_slow + ' ' + TL + ' ' + TL_dis + '\n')
             cv2.imwrite('./data/%d.png'%(self.fileName),img)
 
         self.fileName += 1
@@ -199,7 +192,7 @@ class Collecter():
         first = self.map.get_waypoint(self.vehicle.get_transform().location).next(3)[0]
         way_list.append(first)
 
-        next_way = first.next(30)
+        next_way = first.next(10)
         way_list += next_way
 
         for way in way_list[1:]:
@@ -225,16 +218,18 @@ class Collecter():
             wp_dir = object_waypoint.transform.get_forward_vector()
             dot_ve_wp = ve_dir.x * wp_dir.x + ve_dir.y * wp_dir.y + ve_dir.z * wp_dir.z
 
-            dis = self.vehicle.get_transform().location.distance(object_location)
-            print(dis)
             if dot_ve_wp < 0:
                 continue
 
-            if is_within_distance(object_waypoint.transform, self.vehicle.get_transform(), 20, [0, 90]):
-                self.last_traffic_light = traffic_light
-                return (True, traffic_light)
+            car_to_tl_info = is_within_distance(object_waypoint.transform, self.vehicle.get_transform(), 15, [0, 90])
+            if not isinstance(car_to_tl_info,bool):
+                if (car_to_tl_info[2] > 100 and car_to_tl_info[1] < 2.3) or \
+                    car_to_tl_info[2] < 100:
+                    return traffic_light.state, car_to_tl_info[1]
+                else:
+                    return 'dontShot'
 
-        return (False, None)
+        return None
 
     """手動控制車輛"""
     def parseKeyControl(self,keys, milliseconds):
@@ -266,21 +261,10 @@ class Collecter():
         self.vehicle.apply_control(self.control)
 
 
-
     """銷毀生成物件"""
     def destroy(self):
         for actor in self.actor_list:
             actor.destroy()
-
-
-
-# trafficLight = []
-# for landmark in map.get_all_landmarks():
-#     if landmark.is_dynamic:
-#         trafficLight.append(landmark)
-#
-# for t in trafficLight:
-#     print(t.waypoint)
 
 
 pygame.init()
@@ -305,13 +289,32 @@ try:
         if img is not None:
             collecter.draw_image(img)
 
-        tl = collecter.affected_by_traffic_light()
-        if tl[1] is not None:
-            print(tl[1].state, 'dis:')
+            tl = collecter.affected_by_traffic_light()
+            need_slow = collecter.judge_need_slow()
 
+            if tl != 'dontShot':
+                if tl is not None:
+                    print('TL:',tl[0],'Dis:',tl[1],'needSlow:',need_slow)
+                    # 紅綠燈hot code
+                    if tl[0] == carla.TrafficLightState.Green:
+                        TL = '1 0 0'
+                    else:
+                        TL = '0 1 0'
+                    # 紅綠燈距離hot code
+                    if tl[1] <= 5:
+                        dis = '1 0 0 0'
+                    elif tl[1] <= 10:
+                        dis = '0 1 0 0'
+                    else:
+                        dis = '0 0 1 0'
+                else:
+                    TL = '0 0 1'
+                    dis = '0 0 0 1'
+                    print('needSlow:',need_slow)
+                need_slow = '1' if need_slow else '0'
+                collecter.writeLabel(img,need_slow,TL,dis)
 
         pygame.display.update()
-
 
 finally:
     collecter.destroy()
