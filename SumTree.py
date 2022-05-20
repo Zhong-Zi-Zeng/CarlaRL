@@ -1,7 +1,6 @@
 import numpy as np
 
 
-
 class Tree:
     def __init__(self,capacity):
         self.capacity = capacity # 葉子數量
@@ -14,8 +13,7 @@ class Tree:
         if leaf_idx > len(self.tree) - 1:
             raise ValueError('Leaf index big then total leaf capacity.')
 
-        self.tree[leaf_idx] = data
-        self._update(leaf_idx)
+        self._update_tree(leaf_idx, data)
 
     def get_tree(self):
         return self.tree
@@ -25,41 +23,30 @@ class Tree:
         while True:
             L_idx = p_idx * 2 + 1
             R_idx = L_idx + 1
-
             if L_idx >= len(self.tree):
                 break
             else:
                 if rand <= self.tree[L_idx]:
                     p_idx = L_idx
                 else:
-                    rand -= self.tree[R_idx]
+                    rand -= self.tree[L_idx]
                     p_idx = R_idx
 
-        return self.tree[p_idx]
+        return p_idx, self.tree[p_idx]
 
     def get_total(self):
         return self.tree[0]
 
-    def _update(self,leaf_idx):
-        if leaf_idx == 0:
-            return
-        else:
-            if leaf_idx % 2 == 0:
-                R_idx = leaf_idx
-                L_idx = leaf_idx - 1
-            else:
-                R_idx = leaf_idx + 1
-                L_idx = leaf_idx
+    def _update_tree(self, leaf_idx, data):
+        change = data - self.tree[leaf_idx]
+        self.tree[leaf_idx] = data
+        while leaf_idx != 0:
+            leaf_idx = (leaf_idx - 1) // 2
+            self.tree[leaf_idx] += change
 
-            p_idx = (leaf_idx - 1) // 2
-            self.tree[p_idx] = self.tree[R_idx] + self.tree[L_idx]
-            self._update(p_idx)
+    def batch_update(self,leaf_idx,abs_error):
+        for l_idx, new_p in zip(leaf_idx, abs_error):
+            self._update_tree(l_idx,new_p)
 
 
-tree = Tree(4)
-tree.add(1,3)
-tree.add(2,1)
-tree.add(3,4)
-tree.add(4,2)
 
-print(tree.get_leaf(4.1))

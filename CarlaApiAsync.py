@@ -1,5 +1,6 @@
 import carla
 import numpy as np
+import math
 from collections import deque
 
 # ============處理bgr影像============
@@ -38,6 +39,60 @@ def countDegree(car_transform, waypoint):
 
     return degree
 
+# ============查詢紅綠燈觸發框的位置============
+def get_trafficlight_trigger_location(traffic_light):
+    """
+    Calculates the yaw of the waypoint that represents the trigger volume of the traffic light
+    """
+    def rotate_point(point, radians):
+        """
+        rotate a given point by a given angle
+        """
+        rotated_x = math.cos(radians) * point.x - math.sin(radians) * point.y
+        rotated_y = math.sin(radians) * point.x - math.cos(radians) * point.y
+
+        return carla.Vector3D(rotated_x, rotated_y, point.z)
+
+    base_transform = traffic_light.get_transform()
+    base_rot = base_transform.rotation.yaw
+    area_loc = base_transform.transform(traffic_light.trigger_volume.location)
+    area_ext = traffic_light.trigger_volume.extent
+    point = rotate_point(carla.Vector3D(0, 0, area_ext.z), math.radians(base_rot))
+    point_location = area_loc + carla.Location(x=point.x, y=point.y)
+
+    return carla.Location(point_location.x, point_location.y, point_location.z)
+
+# ============查詢物件與物件間的角度與距離是否在指定範圍內============
+def is_within_distance(target_transform, reference_transform, max_distance, angle_interval=None):
+    """
+    Check if a location is both within a certain distance from a reference object.
+    By using 'angle_interval', the angle between the location and reference transform
+    will also be tkaen into account, being 0 a location in front and 180, one behind.
+
+    :param target_transform: location of the target object
+    :param reference_transform: location of the reference object
+    :param max_distance: maximum allowed distance
+    :param angle_interval: only locations between [min, max] angles will be considered. This isn't checked by default.
+    :return: boolean
+    """
+    target_vector = np.array([
+        target_transform.location.x - reference_transform.location.x,
+        target_transform.location.y - reference_transform.location.y
+    ])
+    norm_target = np.linalg.norm(target_vector)
+
+    if norm_target > max_distance:
+        return False
+
+    min_angle = angle_interval[0]
+    max_angle = angle_interval[1]
+
+    fwd = reference_transform.get_forward_vector()
+    forward_vector = np.array([fwd.x, fwd.y])
+    angle = math.degrees(math.acos(np.clip(np.dot(forward_vector, target_vector) / norm_target, -1., 1.)))
+
+    return min_angle < angle < max_angle, norm_target, angle
+
 class CarlaApi:
     def __init__(self,img_width,img_height,MIN_MIDDLE_DIS=0.6):
         self.world = None
@@ -45,6 +100,7 @@ class CarlaApi:
         self.blueprint_library = None
         self.vehicle = None
         self.vehicle_transform = None
+        self.TL_list = None
         self.block = False
         self.MIN_MIDDLE_DIS = MIN_MIDDLE_DIS
         self.img_width = img_width
@@ -67,6 +123,10 @@ class CarlaApi:
         self.world = client.get_world()
         self.map = self.world.get_map()
         self.blueprint_library = self.world.get_blueprint_library()
+
+    """查詢世界裡所有紅綠燈"""
+    def _search_world_tl(self):
+        self.TL_list = self.world.get_actors().filter("*traffic_light*")
 
     """取出佇列資料"""
     def pop_queue(self,Q):
@@ -204,6 +264,7 @@ class CarlaApi:
     """初始化"""
     def initial(self,AutoMode=False):
         self._connect_to_world()
+        self._search_world_tl()
         self._spawn_vehicle(AutoMode)
         self._spawn_sensor()
         self._spawn_camera()
@@ -242,6 +303,31 @@ class CarlaApi:
             except:
                 continue
 
+    """紅綠燈信號"""
+    def affected_by_traffic_light(self):
+        ego_vehicle_location = self.vehicle.get_location()
+        ego_vehicle_waypoint = self.map.get_waypoint(ego_vehicle_location)
+
+        for traffic_light in self.TL_list:
+            object_location = get_trafficlight_trigger_location(traffic_light)
+            object_waypoint = self.map.get_waypoint(object_location)
+
+            if object_waypoint.road_id != ego_vehicle_waypoint.road_id:
+                continue
+
+            ve_dir = ego_vehicle_waypoint.transform.get_forward_vector()
+            wp_dir = object_waypoint.transform.get_forward_vector()
+            dot_ve_wp = ve_dir.x * wp_dir.x + ve_dir.y * wp_dir.y + ve_dir.z * wp_dir.z
+
+            if dot_ve_wp < 0:
+                continue
+
+            car_to_tl_info = is_within_distance(object_waypoint.transform, self.vehicle.get_transform(), 15, [0, 90])
+            if not isinstance(car_to_tl_info, bool):
+                if (car_to_tl_info[2] > 100 and car_to_tl_info[1] > 2.3):
+                    return traffic_light
+        return False
+
     """獲取車輛訊息"""
     def car_data(self):
         car_info = {}
@@ -264,17 +350,7 @@ class CarlaApi:
         car_info['way_degree'] = way_angel
 
         # 真正紅綠燈訊息
-        tl_data = self.vehicle.get_traffic_light_state()
-        car_info['tl'] = str(tl_data)
-
-        # 是否需要減速
-        # car_info['need_slow'] = 0
-        # if len(self.waypoint_list) > 4:
-        #     for oth in self.waypoint_list[1:3]:
-        #         degree = countDegree(oth.transform,way)
-        #         if degree > 15:
-        #             car_info['need_slow'] = 1
-        #             break
+        car_info['tl'] = self.affected_by_traffic_light()
 
         return car_info
 

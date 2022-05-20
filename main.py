@@ -25,7 +25,7 @@ class main:
         self.CarlaApi = CarlaApi(img_width=400,
                                  img_height=300,
                                  MIN_MIDDLE_DIS=0.75)
-        self.DQN = Agent(lr=0.0005,
+        self.DQN = Agent(alpha=0.0005,
                          gamma=0.99,
                          n_actions=6,
                          epsilon=0.4,
@@ -33,7 +33,9 @@ class main:
                          epsilon_end=0.1,
                          mem_size=100000,
                          epsilon_dec=0.96,
-                         input_shape=16)
+                         input_shape=24,
+                         iteration=100,
+                         use_pri=True)
         # 載入上次權重並繼續訓練
         # self.DQN.load_model()
         self.GUI = GUI()
@@ -43,14 +45,15 @@ class main:
         self.MAX_MIDDLE_DIS = 5
         # 允許偏移角度
         self.DEGREE_LIMIT = 130
-        # 編碼器輸出閥值
+        # 全連接網路輸出閥值
         self.THRESHOLD = 0.8
-
         # 總訓練次數
         self.EPISODES = 100000
+        # 預測變數
         self.pre_tl = None
-        self.pre_junction = None
-
+        self.pre_need_slow = None
+        self.pre_tl_dis = None
+        # 載入編碼網路及全連接層網路
         self.now_path = os.getcwd().replace('\\','/') + '/SegNetwork'
         self.EncodeAndFlattenNetwork = Network(now_path=self.now_path).buildModel()
         self.EncodeAndFlattenNetwork.load_weights()
@@ -69,11 +72,16 @@ class main:
         car_data = self.CarlaApi.car_data()
 
         # 交通狀況
-        # self.pre_tl, self.pre_junction = self.EncodeAndFlattenNetwork.predict(bgr_frame)
-        # self.pre_tl = np.squeeze(self.pre_tl)
-        # self.pre_junction = np.squeeze(self.pre_junction)
-        # tl = 1 if self.pre_tl > self.THRESHOLD else 0
-        # junction = 1 if self.pre_junction > self.THRESHOLD else 0
+        self.pre_need_slow, self.pre_tl, self.pre_tl_dis = self.EncodeAndFlattenNetwork.predict(bgr_frame)
+        self.pre_need_slow = np.squeeze(self.pre_need_slow)
+        self.pre_tl = np.squeeze(self.pre_tl)
+        self.pre_tl_dis = np.squeeze(self.pre_tl_dis)
+
+        NeedSlow = 1 if self.pre_need_slow > self.THRESHOLD else 0
+        TL = np.zeros(3)
+        TL[np.argmax(self.pre_tl)] = 1
+        TL_dis = np.zeros(4)
+        TL_dis[np.argmax(self.pre_tl_dis)] = 1
 
         # 角度部分
         car_data['way_degree'] = np.clip(car_data['way_degree'], -60, 60)
@@ -93,7 +101,7 @@ class main:
                 dis_state[i - 1] = 1
                 break
 
-        state = np.hstack((degree_state,dis_state,car_data['car_speed']))
+        state = np.hstack((degree_state,dis_state,car_data['car_speed'],NeedSlow,TL,TL_dis))
         return state
 
     def show_state(self):
@@ -105,10 +113,27 @@ class main:
         car_data['way_dis'] = str(round(car_data['way_dis'],2)) + ' m'
 
         # 交通狀況
-        # Pre_TL = 'Green' if self.pre_tl > self.THRESHOLD else 'Red'
-        # Pre_needslow = 'True' if self.pre_junction > self.THRESHOLD else 'False'
-        # car_data['Pre_TL'] = Pre_TL
-        # car_data['Pre_needslow'] = Pre_needslow
+        Pre_needslow = 'True' if self.pre_need_slow > self.THRESHOLD else 'False'
+
+        if np.argmax(self.pre_tl) == 0:
+            Pre_TL = 'Green'
+        elif np.argmax(self.pre_tl) == 1:
+            Pre_TL = 'Red'
+        else:
+            Pre_TL = 'None'
+
+        if np.argmax(self.pre_tl_dis) == 0:
+            Pre_TL_dis = 'Close'
+        elif np.argmax(self.pre_tl_dis) == 1:
+            Pre_TL_dis = 'Medium'
+        elif np.argmax(self.pre_tl_dis) == 2:
+            Pre_TL_dis = 'Far'
+        else:
+            Pre_TL_dis = 'None'
+
+        car_data['Pre_needslow'] = Pre_needslow
+        car_data['Pre_TL'] = Pre_TL
+        car_data['Pre_TL_Dis'] = Pre_TL_dis
 
         return car_data
 
@@ -177,23 +202,12 @@ class main:
         done = False
         reward = 0
 
-        # 紅燈時改變速度期望值
-        # if str(car_data['tl']) == 'Red':
-        #     if car_data['car_speed'] == 0:
-        #         reward += 10
-        #     else:
-        #         done = True
-        #         reward = -10
-        # elif str(car_data['tl']) == 'Green':
-        #     if int(car_data['car_speed']) == self.DESIRED_SPEED:
-        #         reward += 1
-        #     else:
-        #         reward += -1.5
-        # if str(car_data['tl']) == 'Green' and int(car_data['car_speed']) == 0:
-        #     reward = -0.5
-
+        # 速度達標準
+        if isinstance(sensor_data['tl'],carla.TrafficLightState.Red):
+            if int(car_data['car_speed']) == 0:
+                reward += 1
         # 速度未達標準
-        if int(car_data['car_speed']) == 0:
+        elif int(car_data['car_speed']) == 0:
             reward += -1.5
 
         # 判斷位置獎勵
@@ -202,10 +216,10 @@ class main:
         # 中止訓練
         if car_data['way_dis'] > self.MAX_MIDDLE_DIS or \
             abs(car_data['way_degree']) > self.DEGREE_LIMIT or \
-            sensor_data['collision_sensor']:
+            sensor_data['collision_sensor'] or \
+            isinstance(sensor_data['tl'],carla.TrafficLightState.Red) and int(car_data['car_speed']) != 0 :
             reward = -10
             done = True
-
 
         return reward, done
 
