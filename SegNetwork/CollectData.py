@@ -110,7 +110,7 @@ class Collecter():
         self.vehicle = None
         self.TL_list = None
         self.last_traffic_light = None
-        self.fileName = 0
+        self.fileName = 144520
         self.clock = pygame.time.Clock()
         self.win_screen = pygame.display.set_mode((400, 300))
 
@@ -129,6 +129,10 @@ class Collecter():
     """查詢世界裡所有紅綠燈"""
     def _search_world_tl(self):
         self.TL_list = self.world.get_actors().filter("*traffic_light*")
+        for tl in self.TL_list:
+            tl.set_red_time(1.5)
+            tl.set_yellow_time(0)
+            tl.set_green_time(1.5)
 
     """連接到模擬環境"""
     def _connect_to_world(self):
@@ -158,7 +162,8 @@ class Collecter():
         camera_bp = self.bp.find('sensor.camera.rgb')
         camera_bp.set_attribute('image_size_x', '400')
         camera_bp.set_attribute('image_size_y', '300')
-        camera_transform = carla.Transform(carla.Location(x=1.5, z=2.4))
+        camera_transform = carla.Transform(carla.Location(x=1.5,y=0.4, z=2.4),carla.Rotation(yaw=-8))
+
         camera = self.world.spawn_actor(camera_bp, camera_transform, attach_to=self.vehicle)
         camera.listen(self._camera_callback)
 
@@ -180,7 +185,7 @@ class Collecter():
     def writeLabel(self,img,need_slow,TL,TL_dis):
         if self.fileName % 5 == 0:
             with open('label.txt','a') as file:
-
+                # print('now write {}'.format(self.fileName))
                 file.writelines(str(self.fileName) + ' ' + need_slow + ' ' + TL + ' ' + TL_dis + '\n')
             cv2.imwrite('./data/%d.png'%(self.fileName),img)
 
@@ -192,7 +197,7 @@ class Collecter():
         first = self.map.get_waypoint(self.vehicle.get_transform().location).next(3)[0]
         way_list.append(first)
 
-        next_way = first.next(10)
+        next_way = first.next(15)
         way_list += next_way
 
         for way in way_list[1:]:
@@ -268,11 +273,10 @@ class Collecter():
 
 
 pygame.init()
-collecter = Collecter(AutoMode=False)
+collecter = Collecter(AutoMode=True)
 
 try:
     run = True
-    flag = False
     while run:
         collecter.clock.tick_busy_loop(60)
 
@@ -288,13 +292,12 @@ try:
 
         if img is not None:
             collecter.draw_image(img)
-
             tl = collecter.affected_by_traffic_light()
             need_slow = collecter.judge_need_slow()
 
             if tl != 'dontShot':
                 if tl is not None:
-                    print('TL:',tl[0],'Dis:',tl[1],'needSlow:',need_slow)
+                    # print('TL:',tl[0],'Dis:',tl[1],'needSlow:',need_slow)
                     # 紅綠燈hot code
                     if tl[0] == carla.TrafficLightState.Green:
                         TL = '1 0 0'
@@ -310,7 +313,7 @@ try:
                 else:
                     TL = '0 0 1'
                     dis = '0 0 0 1'
-                    print('needSlow:',need_slow)
+                    # print('needSlow:',need_slow)
                 need_slow = '1' if need_slow else '0'
                 collecter.writeLabel(img,need_slow,TL,dis)
 

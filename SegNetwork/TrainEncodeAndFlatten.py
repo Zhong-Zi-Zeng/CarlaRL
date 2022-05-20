@@ -32,8 +32,9 @@ LR = 0.001
 EncodeAndFlattenNetwork = Network(now_path='.').buildModel()
 EncodeAndFlattenNetwork.model.summary()
 
-losses = {'TL': 'binary_crossentropy',
-          'Junction': 'binary_crossentropy'}
+losses = {'TL': 'categorical_crossentropy',
+          'TL_dis': 'categorical_crossentropy',
+          'need_slow': 'binary_crossentropy'}
 
 EncodeAndFlattenNetwork.model.compile(optimizer=RMSprop(learning_rate=LR), loss=losses, metrics=['acc'])
 
@@ -43,8 +44,9 @@ def generate(data,batch_size=5):
     n = len(data)
     while True:
         X_train = []
-        TL_label = []
-        Injunction_label = []
+        TL_label_list = []
+        TL_dis_label_list = []
+        need_slow_label_list = []
         for _ in range(batch_size):
             # 圖片名稱
             img_name = data[i]
@@ -56,21 +58,24 @@ def generate(data,batch_size=5):
             X_train.append(encode_output)
 
             # Label 處理
-            Junction_label, Tl_label = readSpeficyRow(img_name.strip('.png'))
-            TL_label.append(Tl_label)
-            Injunction_label.append(Junction_label)
+            need_slow_label, Tl_label, TL_dis_label = readSpeficyRow(img_name.strip('.png'))
+            need_slow_label_list.append(need_slow_label)
+            TL_label_list.append(Tl_label)
+            TL_dis_label_list.append(TL_dis_label)
+
             i = (i + 1) % n
 
-        yield (np.array(X_train), [np.array(TL_label), np.array(Injunction_label)])
+        yield (np.array(X_train), [np.array(need_slow_label_list), np.array(TL_label_list), np.array(TL_dis_label_list)])
 
 
 def readSpeficyRow(row):
     row = int(row) / 5 + 1
     str = linecache.getline('label.txt', int(row)).rstrip().split(' ')
-    Junction_label = int(str[1])
-    Tl_label = int(str[2])
+    need_slow_label = int(str[1])
+    Tl_label = list(map(int,str[2:5]))
+    TL_dis_label = list(map(int,str[5:]))
 
-    return Junction_label, Tl_label
+    return need_slow_label, Tl_label, TL_dis_label
 
 
 learning_rate_reduction = ReduceLROnPlateau(
@@ -80,7 +85,7 @@ learning_rate_reduction = ReduceLROnPlateau(
                                             factor=0.5,
                                             min_lr=0.00001)
 checkpoint_period = ModelCheckpoint(
-                                    filepath='./val_TL_acc{val_TL_acc:.3f}-val_Junction_acc{val_Junction_acc:.3f}.h5',
+                                    filepath='./val_TL_acc{val_TL_acc:.3f}-val_need_slow_acc{val_Junction_acc:.3f}.h5',
                                     monitor='val_TL_acc',
                                     save_weights_only=True,
                                     save_best_only=True,

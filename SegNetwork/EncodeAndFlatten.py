@@ -46,9 +46,15 @@ class Network:
         output_2 = Dense(1024, activation='relu')(output)
         output_2 = Dense(512, activation='relu')(output_2)
 
-        TL = Dense(1, activation='sigmoid', name='TL')(output_1)
-        Junction = Dense(1, activation='sigmoid', name='Junction')(output_2)
-        self.model = Model(inputs=inputs, outputs=[TL, Junction])
+        output_3 = Dense(1024, activation='relu')(output)
+        output_3 = Dense(512, activation='relu')(output_3)
+
+        need_slow = Dense(1, activation='sigmoid', name='need_slow')(output_1)
+        TL = Dense(3, activation='sigmoid', name='TL')(output_2)
+        TL_dis =  Dense(4, activation='sigmoid', name='TL_dis')(output_3)
+
+
+        self.model = Model(inputs=inputs, outputs=[need_slow, TL, TL_dis])
 
         return self
 
