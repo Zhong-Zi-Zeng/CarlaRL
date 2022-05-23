@@ -23,7 +23,10 @@ try:
         pre_tl = np.squeeze(pre_tl)
         pre_tl_dis = np.squeeze(pre_tl_dis)
 
-        NeedSlow = 'True' if pre_need_slow > 0.8 else 'False'
+        if np.argmax(pre_need_slow) == 0:
+            NeedSlow = 'True'
+        else:
+            NeedSlow = 'False'
 
         if np.argmax(pre_tl) == 0:
             Pre_TL = 'Green'

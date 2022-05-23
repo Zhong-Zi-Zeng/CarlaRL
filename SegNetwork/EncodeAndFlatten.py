@@ -15,7 +15,7 @@ class Network:
         self.SetEncodeNetworkWeights()
 
         # Flatten的權重位置
-        self.FlattenWeights = self.now_path + '/' + 'weights/val_TL_acc0.920-val_Junction_acc0.904.h5'
+        self.FlattenWeights = self.now_path + '/' + 'weights/val_TL_acc0.870-val_need_slow_acc0.987.h5'
 
         self.model = None
 
@@ -49,10 +49,9 @@ class Network:
         output_3 = Dense(1024, activation='relu')(output)
         output_3 = Dense(512, activation='relu')(output_3)
 
-        need_slow = Dense(1, activation='sigmoid', name='need_slow')(output_1)
-        TL = Dense(3, activation='sigmoid', name='TL')(output_2)
-        TL_dis =  Dense(4, activation='sigmoid', name='TL_dis')(output_3)
-
+        need_slow = Dense(2, activation='softmax', name='need_slow')(output_1)
+        TL = Dense(3, activation='softmax', name='TL')(output_2)
+        TL_dis =  Dense(4, activation='softmax', name='TL_dis')(output_3)
 
         self.model = Model(inputs=inputs, outputs=[need_slow, TL, TL_dis])
 

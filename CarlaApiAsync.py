@@ -325,7 +325,7 @@ class CarlaApi:
             car_to_tl_info = is_within_distance(object_waypoint.transform, self.vehicle.get_transform(), 15, [0, 90])
             if not isinstance(car_to_tl_info, bool):
                 if (car_to_tl_info[2] > 100 and car_to_tl_info[1] > 2.3):
-                    return traffic_light
+                    return True
         return False
 
     """獲取車輛訊息"""

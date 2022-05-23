@@ -26,7 +26,7 @@ NUM_TRAINS = int(len(x_train_name) * RATIO)
 BATCH_SIZE = 64
 
 # 學習率
-LR = 0.001
+LR = 0.0005
 
 # 生成模型
 EncodeAndFlattenNetwork = Network(now_path='.').buildModel()
@@ -34,9 +34,9 @@ EncodeAndFlattenNetwork.model.summary()
 
 losses = {'TL': 'categorical_crossentropy',
           'TL_dis': 'categorical_crossentropy',
-          'need_slow': 'binary_crossentropy'}
+          'need_slow': 'categorical_crossentropy'}
 
-EncodeAndFlattenNetwork.model.compile(optimizer=RMSprop(learning_rate=LR), loss=losses, metrics=['acc'])
+EncodeAndFlattenNetwork.model.compile(optimizer=Adam(learning_rate=LR), loss=losses, metrics=['acc'])
 
 
 def generate(data,batch_size=5):
@@ -50,7 +50,6 @@ def generate(data,batch_size=5):
         for _ in range(batch_size):
             # 圖片名稱
             img_name = data[i]
-            # print(img_name)
             # X_train圖片處理
             ori_img = cv2.imread(x_train_path + '/' + img_name)
             ori_img = ori_img[np.newaxis,:]
@@ -69,12 +68,11 @@ def generate(data,batch_size=5):
 
 
 def readSpeficyRow(row):
-    row = int(row) / 5 + 1
+    row = int(row) + 1
     str = linecache.getline('label.txt', int(row)).rstrip().split(' ')
-    need_slow_label = int(str[1])
-    Tl_label = list(map(int,str[2:5]))
-    TL_dis_label = list(map(int,str[5:]))
-
+    need_slow_label = list(map(int,str[1:3]))
+    Tl_label = list(map(int,str[3:6]))
+    TL_dis_label = list(map(int,str[6:]))
     return need_slow_label, Tl_label, TL_dis_label
 
 

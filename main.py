@@ -203,7 +203,7 @@ class main:
         reward = 0
 
         # 速度達標準
-        if isinstance(sensor_data['tl'],carla.TrafficLightState.Red):
+        if car_data['tl']:
             if int(car_data['car_speed']) == 0:
                 reward += 1
         # 速度未達標準
@@ -217,7 +217,7 @@ class main:
         if car_data['way_dis'] > self.MAX_MIDDLE_DIS or \
             abs(car_data['way_degree']) > self.DEGREE_LIMIT or \
             sensor_data['collision_sensor'] or \
-            isinstance(sensor_data['tl'],carla.TrafficLightState.Red) and int(car_data['car_speed']) != 0 :
+            car_data['tl'] and int(car_data['car_speed']) != 0 :
             reward = -10
             done = True
 
