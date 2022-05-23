@@ -9,10 +9,9 @@ from pygame import K_UP
 from pygame import K_DOWN
 from pygame import K_LEFT
 from pygame import K_RIGHT
-from pygame import K_f
+from pygame import K_r
 import numpy as np
 from collections import deque
-
 
 
 
@@ -24,7 +23,6 @@ def process_bgr_frame(bgr_frame):
     bgr_frame = array[:, :, :3]
 
     return bgr_frame
-
 
 # ============計算與waypoint的角度============
 def countDegree(car_transform, waypoint):
@@ -117,8 +115,11 @@ class Collecter():
         self.fileName = os.listdir('./data')
         self.fileName.sort(key=lambda x:int(x[:-4]))
         self.fileName.reverse()
-        self.fileName = int(self.fileName[0][:-4]) + self.camera_clock
-        # self.fileName = 0
+
+        if len(self.fileName) == 0:
+            self.fileName = 0
+        else:
+            self.fileName = int(self.fileName[0][:-4]) + self.camera_clock
 
         self.clock = pygame.time.Clock()
         self.win_screen = pygame.display.set_mode((400, 300))
@@ -177,7 +178,8 @@ class Collecter():
         transform = random.choice(self.world.get_map().get_spawn_points())
         self.vehicle = self.world.spawn_actor(bp, transform)
         self.vehicle.set_autopilot(self.AutoMode)
-        self.vehicle.enable_constant_velocity(carla.Vector3D(x=2.7))
+        if self.AutoMode:
+            self.vehicle.enable_constant_velocity(carla.Vector3D(x=2.7))
         self.actor_list.append(self.vehicle)
 
     """隨機移動車輛位置"""
@@ -202,23 +204,46 @@ class Collecter():
 
     """返回相機畫面"""
     def camera_data(self):
-        if self.sys_mode:
-            while True:
-                if len(self.bgr_queue):
-                    data = self.bgr_queue.pop()
-                    if data.frame == self.frame:
-                        return process_bgr_frame(data)
-        else:
+        while True:
             if len(self.bgr_queue):
                 data = self.bgr_queue.pop()
-                return process_bgr_frame(data)
+                if self.sys_mode:
+                    if data.frame == self.frame:
+                        return process_bgr_frame(data)
+                else:
+                    return process_bgr_frame(data)
 
     """寫入label及儲存照片"""
-    def writeLabel(self,img,need_slow,TL,TL_dis):
-        if self.fileName % self.camera_clock == 0:
-            with open('label.txt','a') as file:
-                file.writelines(str(self.fileName) + ' ' + need_slow + ' ' + TL + ' ' + TL_dis + '\n')
-            cv2.imwrite('./data/%d.png'%(self.fileName),img)
+    def writeLabel(self,img):
+        tl = self.affected_by_traffic_light()
+        need_slow = self.judge_need_slow()
+
+        if tl != 'dontShot':
+            if tl is not None:
+                # 紅綠燈hot code
+                if tl[0] == carla.TrafficLightState.Green:
+                    TL = '1 0 0'
+                elif tl[0] == carla.TrafficLightState.Red:
+                    TL = '0 1 0'
+                else:
+                    TL = '0 0 1'
+                # 紅綠燈距離hot code
+                if tl[1] <= 5:
+                    TL_dis = '1 0 0 0'
+                elif tl[1] <= 10:
+                    TL_dis = '0 1 0 0'
+                else:
+                    TL_dis = '0 0 1 0'
+            else:
+                TL = '0 0 1'
+                TL_dis = '0 0 0 1'
+
+            need_slow = '1 0' if need_slow else '0 1'
+
+            if self.fileName % self.camera_clock == 0:
+                with open('label_1.txt','a') as file:
+                    file.writelines(str(self.fileName) + ' ' + need_slow + ' ' + TL + ' ' + TL_dis + '\n')
+                cv2.imwrite('./data/%d.png'%(self.fileName),img)
 
         self.fileName += 1
 
@@ -261,7 +286,7 @@ class Collecter():
             if not isinstance(car_to_tl_info,bool):
                 if (car_to_tl_info[2] > 100 and car_to_tl_info[1] < 2.3) or \
                     car_to_tl_info[2] < 100:
-                    traffic_light.set_state(carla.TrafficLightState.Green)
+                    # traffic_light.set_state(carla.TrafficLightState.Green)
                     return traffic_light.state, car_to_tl_info[1]
                 else:
                     return 'dontShot'
@@ -304,13 +329,14 @@ class Collecter():
 
 
 pygame.init()
-SYS_MODE = False
-collecter = Collecter(camera_clock=1,AutoMode=True,sys_mode=SYS_MODE)
+SYS_MODE = True
+collecter = Collecter(camera_clock=1,AutoMode=False,sys_mode=SYS_MODE)
+
 try:
     run = True
     while run:
         collecter.clock.tick_busy_loop(60)
-        collecter.set_tl_state_time()
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
@@ -318,42 +344,15 @@ try:
                 if event.key == pygame.K_ESCAPE:
                     run = False
 
+        img = collecter.tick()
+        collecter.draw_image(img)
+
+        keys = pygame.key.get_pressed()
+        if keys[K_r]:
+            collecter.writeLabel(img)
+
         collecter.parseKeyControl(pygame.key.get_pressed(), collecter.clock.get_time())
 
-        if SYS_MODE:
-            img = collecter.tick()
-        else:
-            img = collecter.camera_data()
-
-        if img is not None:
-            collecter.draw_image(img)
-            tl = collecter.affected_by_traffic_light()
-            need_slow = collecter.judge_need_slow()
-
-            if tl != 'dontShot':
-                if tl is not None:
-                    # 紅綠燈hot code
-                    if tl[0] == carla.TrafficLightState.Green:
-                        TL = '1 0 0'
-                    else:
-                        TL = '0 1 0'
-                    # 紅綠燈距離hot code
-                    if tl[1] <= 5:
-                        dis = '1 0 0 0'
-                    elif tl[1] <= 10:
-                        dis = '0 1 0 0'
-                    else:
-                        dis = '0 0 1 0'
-                else:
-                    TL = '0 0 1'
-                    dis = '0 0 0 1'
-                # print('needSlow:',need_slow)
-                # print('TL:',TL,'Dis:',dis)
-                need_slow = '1 0' if need_slow else '0 1'
-                # collecter.writeLabel(img,need_slow,TL,dis)
-
-                if SYS_MODE:
-                    collecter.random_move_vehicle()
         pygame.display.update()
 finally:
     collecter.destroy()
