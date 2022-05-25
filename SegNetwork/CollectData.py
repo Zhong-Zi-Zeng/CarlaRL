@@ -145,7 +145,7 @@ class Collecter():
         for tl in self.TL_list:
             tl.set_red_time(0)
             tl.set_yellow_time(0)
-            tl.set_green_time(1)
+            tl.set_green_time(4)
 
     """連接到模擬環境"""
     def _connect_to_world(self):
@@ -241,11 +241,10 @@ class Collecter():
             need_slow = '1 0' if need_slow else '0 1'
 
             if self.fileName % self.camera_clock == 0:
-                with open('label_1.txt','a') as file:
+                with open('label.txt','a') as file:
                     file.writelines(str(self.fileName) + ' ' + need_slow + ' ' + TL + ' ' + TL_dis + '\n')
                 cv2.imwrite('./data/%d.png'%(self.fileName),img)
-
-        self.fileName += 1
+                self.fileName += 1
 
     """判斷該路段是否需要減速"""
     def judge_need_slow(self):
@@ -286,7 +285,6 @@ class Collecter():
             if not isinstance(car_to_tl_info,bool):
                 if (car_to_tl_info[2] > 100 and car_to_tl_info[1] < 2.3) or \
                     car_to_tl_info[2] < 100:
-                    # traffic_light.set_state(carla.TrafficLightState.Green)
                     return traffic_light.state, car_to_tl_info[1]
                 else:
                     return 'dontShot'
@@ -346,10 +344,12 @@ try:
 
         img = collecter.tick()
         collecter.draw_image(img)
-
+        collecter.set_tl_state_time()
         keys = pygame.key.get_pressed()
         if keys[K_r]:
             collecter.writeLabel(img)
+        # collecter.writeLabel(img)
+        # collecter.random_move_vehicle()
 
         collecter.parseKeyControl(pygame.key.get_pressed(), collecter.clock.get_time())
 

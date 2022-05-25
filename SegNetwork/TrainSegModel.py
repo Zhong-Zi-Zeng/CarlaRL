@@ -11,7 +11,6 @@ if gpus:
       tf.config.experimental.set_memory_growth(gpu, True)
 
 
-
 # 全部的類別
 AllClass = {
     '0': (0, 0, 0),  # 未標記

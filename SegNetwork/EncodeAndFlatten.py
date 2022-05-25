@@ -15,7 +15,7 @@ class Network:
         self.SetEncodeNetworkWeights()
 
         # Flatten的權重位置
-        self.FlattenWeights = self.now_path + '/' + 'weights/val_TL_acc0.870-val_need_slow_acc0.987.h5'
+        self.FlattenWeights = self.now_path + '/' + 'weights/val_TL_acc0.873-val_need_slow_acc0.998.h5'
 
         self.model = None
 

@@ -23,10 +23,10 @@ RATIO = 0.7
 NUM_TRAINS = int(len(x_train_name) * RATIO)
 
 # 訓練批次
-BATCH_SIZE = 64
+BATCH_SIZE = 128
 
 # 學習率
-LR = 0.0005
+LR = 0.001
 
 # 生成模型
 EncodeAndFlattenNetwork = Network(now_path='.').buildModel()
@@ -61,7 +61,6 @@ def generate(data,batch_size=5):
             need_slow_label_list.append(need_slow_label)
             TL_label_list.append(Tl_label)
             TL_dis_label_list.append(TL_dis_label)
-
             i = (i + 1) % n
 
         yield (np.array(X_train), [np.array(need_slow_label_list), np.array(TL_label_list), np.array(TL_dis_label_list)])
@@ -78,7 +77,7 @@ def readSpeficyRow(row):
 
 learning_rate_reduction = ReduceLROnPlateau(
                                             monitor='val_TL_acc',
-                                            patience=3,
+                                            patience=2,
                                             verbose=1,
                                             factor=0.5,
                                             min_lr=0.00001)
@@ -100,7 +99,7 @@ early_stopping = EarlyStopping(
 EncodeAndFlattenNetwork.model.fit(generate(x_train_name[:NUM_TRAINS],batch_size=BATCH_SIZE),
             steps_per_epoch=max(1, NUM_TRAINS // BATCH_SIZE),
             validation_data=generate(x_train_name[NUM_TRAINS:], batch_size=BATCH_SIZE),
-            epochs=30,
+            epochs=50,
             validation_steps=max(1, len(x_train_name[NUM_TRAINS:]) // BATCH_SIZE),
             initial_epoch=0,
             callbacks=[learning_rate_reduction,checkpoint_period,early_stopping])
