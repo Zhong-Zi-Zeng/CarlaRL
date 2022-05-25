@@ -4,6 +4,7 @@ import random
 import cv2
 import pygame
 import math
+import queue
 from pygame import K_UP
 from pygame import K_DOWN
 from pygame import K_LEFT
@@ -22,6 +23,14 @@ def process_bgr_frame(bgr_frame):
     bgr_frame = array[:, :, :3]
 
     return bgr_frame
+
+def process_seg_img(seg_frame):
+    seg_frame.convert(carla.ColorConverter.CityScapesPalette)
+    array = np.frombuffer(seg_frame.raw_data, dtype=np.uint8)
+    array = np.reshape(array, (seg_frame.height, seg_frame.width, 4))
+    seg_frame = array[:, :, :3]
+
+    return seg_frame
 
 # ============計算與waypoint的角度============
 def countDegree(car_transform, waypoint):
@@ -99,9 +108,11 @@ def is_within_distance(target_transform, reference_transform, max_distance, angl
     return min_angle < angle < max_angle, norm_target, angle
 
 class Collector():
-    def __init__(self,camera_clock,sys_mode,AutoMode=False):
+    def __init__(self,sys_mode,Label,AutoMode=False):
         self.actor_list = []
-        self.camera_clock = camera_clock
+        self.sensor_list = []
+        self.queues = []
+        self.label = Label
         self.AutoMode = AutoMode
         self.sys_mode = sys_mode
         self.bp = None
@@ -110,23 +121,23 @@ class Collector():
         self.map = None
         self.vehicle = None
         self.TL_list = None
+        self.control = carla.VehicleControl()
+        self.steer_cache = 0.0
 
-        self.fileName = os.listdir('./data')
+        if self.label == 'Seg':
+            self.fileName = os.listdir('./seg')
+        else:
+            self.fileName = os.listdir('./data')
         self.fileName.sort(key=lambda x:int(x[:-4]))
         self.fileName.reverse()
-
         if len(self.fileName) == 0:
             self.fileName = 0
         else:
-            self.fileName = int(self.fileName[0][:-4]) + self.camera_clock
+            self.fileName = int(self.fileName[0][:-4]) + 1
 
         self.clock = pygame.time.Clock()
         self.win_screen = pygame.display.set_mode((400, 300))
-
-        self.bgr_queue = deque(maxlen=5)
         self.initial()
-        self.control = carla.VehicleControl()
-        self.steer_cache = 0.0
 
     """模擬環境初始化"""
     def initial(self):
@@ -134,6 +145,7 @@ class Collector():
         self._search_world_tl()
         self._spawn_vehicle()
         self._spawn_camera()
+        self._make_event()
 
     """查詢世界裡所有紅綠燈"""
     def _search_world_tl(self):
@@ -163,8 +175,15 @@ class Collector():
         
     """同步模式"""
     def tick(self):
+        def check_data(q):
+            data = q.get(timeout=4.0)
+            if data.frame == self.frame:
+                return data
+
         self.frame = self.world.tick()
-        return self.camera_data()
+        camera_data = [check_data(sensor_queue) for sensor_queue in self.queues]
+
+        return camera_data
 
     """繪製影像"""
     def draw_image(self,bgr_frame):
@@ -191,55 +210,63 @@ class Collector():
         camera_bp = self.bp.find('sensor.camera.rgb')
         camera_bp.set_attribute('image_size_x', '400')
         camera_bp.set_attribute('image_size_y', '300')
-        camera_transform = carla.Transform(carla.Location(x=1.5,y=-0.7, z=2.4),carla.Rotation(yaw=6))
+        camera_transform = carla.Transform(carla.Location(x=1.5, y=-0, z=2.4))
         camera = self.world.spawn_actor(camera_bp, camera_transform, attach_to=self.vehicle)
-        camera.listen(self._camera_callback)
 
         self.actor_list.append(camera)
+        self.sensor_list.append(camera)
 
-    """相機回調函式"""
-    def _camera_callback(self,img):
-        self.bgr_queue.append(img)
+        seg_camera_bp = self.bp.find('sensor.camera.semantic_segmentation')
+        seg_camera_bp.set_attribute('image_size_x', '400')
+        seg_camera_bp.set_attribute('image_size_y', '300')
+        seg_camera_transform = carla.Transform(carla.Location(x=1.5, y=0, z=2.4))
+        seg_camera = self.world.spawn_actor(seg_camera_bp, seg_camera_transform, attach_to=self.vehicle)
 
-    """返回相機畫面"""
-    def camera_data(self):
-        while True:
-            if len(self.bgr_queue):
-                data = self.bgr_queue.pop()
-                if self.sys_mode:
-                    if data.frame == self.frame:
-                        return process_bgr_frame(data)
-                else:
-                    return process_bgr_frame(data)
+        self.actor_list.append(seg_camera)
+        self.sensor_list.append(seg_camera)
+
+    """監聽"""
+    def _make_event(self):
+        def make_queue(s):
+            q = queue.Queue()
+            s.listen(q.put)
+            self.queues.append(q)
+
+        for sensor in self.sensor_list:
+            make_queue(sensor)
 
     """寫入label及儲存照片"""
-    def writeLabel(self,img):
-        tl = self.affected_by_traffic_light()
-        need_slow = self.judge_need_slow()
+    def writeLabel(self,bgr_img,seg_img):
+        if self.label == 'Seg':
+            cv2.imwrite('./ori/%d.png' % (self.fileName), bgr_img)
+            cv2.imwrite('./seg/%d.png' % (self.fileName), seg_img)
+            self.fileName += 1
+        else:
+            tl = self.affected_by_traffic_light()
+            need_slow = self.judge_need_slow()
 
-        if tl != 'dontShot':
-            if tl is not None:
-                # 紅綠燈hot code
-                if tl[0] == carla.TrafficLightState.Green:
-                    TL = '1 0 0'
-                elif tl[0] == carla.TrafficLightState.Red:
-                    TL = '0 1 0'
+            if tl != 'dontShot':
+                if tl is not None:
+                    # 紅綠燈hot code
+                    if tl[0] == carla.TrafficLightState.Green:
+                        TL = '1 0 0'
+                    elif tl[0] == carla.TrafficLightState.Red:
+                        TL = '0 1 0'
+                    else:
+                        TL = '0 0 1'
+                    # 紅綠燈距離hot code
+                    if tl[1] <= 5:
+                        TL_dis = '1 0 0 0'
+                    elif tl[1] <= 10:
+                        TL_dis = '0 1 0 0'
+                    else:
+                        TL_dis = '0 0 1 0'
                 else:
                     TL = '0 0 1'
-                # 紅綠燈距離hot code
-                if tl[1] <= 5:
-                    TL_dis = '1 0 0 0'
-                elif tl[1] <= 10:
-                    TL_dis = '0 1 0 0'
-                else:
-                    TL_dis = '0 0 1 0'
-            else:
-                TL = '0 0 1'
-                TL_dis = '0 0 0 1'
+                    TL_dis = '0 0 0 1'
 
-            need_slow = '1 0' if need_slow else '0 1'
+                need_slow = '1 0' if need_slow else '0 1'
 
-            if self.fileName % self.camera_clock == 0:
                 with open('label.txt','a') as file:
                     file.writelines(str(self.fileName) + ' ' + need_slow + ' ' + TL + ' ' + TL_dis + '\n')
                 cv2.imwrite('./data/%d.png'%(self.fileName),img)
@@ -327,7 +354,7 @@ class Collector():
 
 pygame.init()
 SYS_MODE = True
-collector = Collector(camera_clock=1, AutoMode=False, sys_mode=SYS_MODE)
+collector = Collector(AutoMode=False, sys_mode=SYS_MODE,Label='Seg')
 
 try:
     run = True
@@ -342,12 +369,15 @@ try:
                     run = False
 
         img = collector.tick()
-        collector.draw_image(img)
+        bgr_img = process_bgr_frame(img[0])
+        seg_img = process_seg_img(img[1])
+
+        collector.draw_image(bgr_img)
         collector.set_tl_state_time()
         keys = pygame.key.get_pressed()
         if keys[K_r]:
-            collector.writeLabel(img)
-        # collector.writeLabel(img)
+            collector.writeLabel(bgr_img, seg_img)
+        # collector.writeLabel(bgr_img, seg_img)
         # collector.random_move_vehicle()
 
         collector.parseKeyControl(pygame.key.get_pressed(), collector.clock.get_time())

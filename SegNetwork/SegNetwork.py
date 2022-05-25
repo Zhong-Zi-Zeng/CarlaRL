@@ -12,7 +12,7 @@ if gpus:
 
 
 class SegNetwork:
-    def __init__(self,cls_num=7,LR=0.001):
+    def __init__(self,cls_num,LR=0.001):
         self.cls_num = cls_num
         self.seg = Sequential()
         self.seg.add(EncodeNetwork())
@@ -37,12 +37,10 @@ class SegNetwork:
         #         del car_data['del']
         InterestClass = {
             '0': (0, 0, 0),  # 未標記
-            '1': (60, 20, 220),  # 行人
-            '2': (50, 234, 157),  # 道路線
-            '3': (128, 64, 128),  # 馬路
-            '4': (232, 35, 244),  # 人行道
-            '5': (142, 0, 0),  # 汽車
-            '6': (30, 170, 250)  # 紅綠燈
+            '1': (50, 234, 157),  # 道路線
+            '2': (128, 64, 128),  # 馬路
+            '3': (232, 35, 244),  # 人行道
+            '4': (30, 170, 250)  # 紅綠燈
         }
         result_img = np.zeros((300,400,3), dtype=np.uint8)
         hot_code = np.argmax(output, axis=2)

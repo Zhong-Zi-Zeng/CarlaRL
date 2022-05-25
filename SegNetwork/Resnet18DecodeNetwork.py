@@ -16,14 +16,11 @@ class DecodeNetwork(Model):
         super().__init__()
         self.cls_num = cls_num
 
-        self.h1 = Conv2DTranspose(128,(3,3),strides=(1,1),padding='same',use_bias=False,activation='relu')
+        self.h1 = Conv2DTranspose(64, (3, 3), strides=(1, 1), padding='same', use_bias=False,activation='relu')
         self.b1 = BatchNormalization()
 
-        self.h2 = Conv2DTranspose(64, (3, 3), strides=(1, 1), padding='same', use_bias=False,activation='relu')
+        self.h2 = Conv2DTranspose(32, (3, 3), strides=(1, 1), padding='same', use_bias=False,activation='relu')
         self.b2 = BatchNormalization()
-
-        self.h3 = Conv2DTranspose(32, (3, 3), strides=(1, 1), padding='same', use_bias=False,activation='relu')
-        self.b3 = BatchNormalization()
 
         self.o = Dense(self.cls_num,activation='softmax')
 
@@ -32,8 +29,6 @@ class DecodeNetwork(Model):
         output = self.b1(output)
         output = self.h2(output)
         output = self.b2(output)
-        output = self.h3(output)
-        output = self.b3(output)
         output = self.o(output)
 
         return output

@@ -59,9 +59,9 @@ class EncodeNetwork(Model):
     def __init__(self):
         super().__init__()
         self.layerSequential = Sequential()
-        self.filters_list = [64,128,256,512]
+        self.filters_list = [16,32]
 
-        self.c1 = Conv2D(64, (3, 3), strides=1, padding='same', use_bias=False)
+        self.c1 = Conv2D(16, (3, 3), strides=1, padding='same', use_bias=False)
         self.b1 = BatchNormalization()
         self.a1 = Activation('relu')
 

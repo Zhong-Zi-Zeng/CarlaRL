@@ -10,9 +10,8 @@ if gpus:
     for gpu in gpus:
       tf.config.experimental.set_memory_growth(gpu, True)
 
-
 class SegNetwork:
-    def __init__(self,cls_num=5,LR=0.001):
+    def __init__(self,cls_num,LR=0.001):
         self.cls_num = cls_num
         self.seg = Sequential()
         self.seg.add(EncodeNetwork())
