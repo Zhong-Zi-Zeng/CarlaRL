@@ -1,5 +1,4 @@
 import os
-
 import carla
 import random
 import cv2
@@ -99,7 +98,7 @@ def is_within_distance(target_transform, reference_transform, max_distance, angl
 
     return min_angle < angle < max_angle, norm_target, angle
 
-class Collecter():
+class Collector():
     def __init__(self,camera_clock,sys_mode,AutoMode=False):
         self.actor_list = []
         self.camera_clock = camera_clock
@@ -328,12 +327,12 @@ class Collecter():
 
 pygame.init()
 SYS_MODE = True
-collecter = Collecter(camera_clock=1,AutoMode=False,sys_mode=SYS_MODE)
+collector = Collector(camera_clock=1, AutoMode=False, sys_mode=SYS_MODE)
 
 try:
     run = True
     while run:
-        collecter.clock.tick_busy_loop(60)
+        collector.clock.tick_busy_loop(60)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -342,19 +341,19 @@ try:
                 if event.key == pygame.K_ESCAPE:
                     run = False
 
-        img = collecter.tick()
-        collecter.draw_image(img)
-        collecter.set_tl_state_time()
+        img = collector.tick()
+        collector.draw_image(img)
+        collector.set_tl_state_time()
         keys = pygame.key.get_pressed()
         if keys[K_r]:
-            collecter.writeLabel(img)
-        # collecter.writeLabel(img)
-        # collecter.random_move_vehicle()
+            collector.writeLabel(img)
+        # collector.writeLabel(img)
+        # collector.random_move_vehicle()
 
-        collecter.parseKeyControl(pygame.key.get_pressed(), collecter.clock.get_time())
+        collector.parseKeyControl(pygame.key.get_pressed(), collector.clock.get_time())
 
         pygame.display.update()
 finally:
-    collecter.destroy()
+    collector.destroy()
     print('destroy actor')
 
