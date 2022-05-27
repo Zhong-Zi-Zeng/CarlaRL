@@ -56,14 +56,14 @@ seg_img_path = './seg'
 seg_img_name = os.listdir(seg_img_path)
 
 # 訓練集與驗證集比例
-RATIO = 0.9
+RATIO = 0.8
 NUM_TRAINS = int(len(ori_img_name) * RATIO)
 
 # 訓練批次
 BATCH_SIZE = 16
 
 # 學習率
-LR = 0.002
+LR = 0.001
 
 # 生成器
 def generate(data,batch_size=5):
@@ -96,7 +96,7 @@ def generate(data,batch_size=5):
 
                 if obj_bgr in InterestClass.values() and index != 0:
                     channel = list(InterestClass.values()).index(obj_bgr)
-                    label_seg[:, : ,channel] = matrix
+                    label_seg[:, :, channel] = matrix
                 else:
                     label_seg[:, :, 0] += matrix
 
@@ -114,7 +114,7 @@ learning_rate_reduction = ReduceLROnPlateau(
                                             factor=0.5,
                                             min_lr=0.00001)
 checkpoint_period = ModelCheckpoint(
-                                    filepath='./weight/ep{epoch:03d}-loss{loss:.3f}-val_acc{val_acc:.3f}.h5',
+                                    filepath='./ep{epoch:03d}-loss{loss:.3f}-val_acc{val_acc:.3f}.h5',
                                     monitor='val_acc',
                                     save_weights_only=True,
                                     save_best_only=True,

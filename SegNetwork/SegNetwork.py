@@ -3,7 +3,9 @@ from SegEncodeNetwork import EncodeNetwork
 from tensorflow.keras.optimizers import *
 from tensorflow.keras.models import *
 import tensorflow as tf
+import tensorflow_addons as tfa
 import numpy as np
+
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:
@@ -19,7 +21,9 @@ class SegNetwork:
         self.seg.add(DecodeNetwork(cls_num=self.cls_num))
         self.seg.build(input_shape=(1,300,400,3))
         self.seg.summary()
-        self.seg.compile(optimizer=Adam(learning_rate=LR), loss='categorical_crossentropy', metrics=['acc'])
+        self.seg.compile(optimizer=Adam(learning_rate=LR),
+                         loss="categorical_crossentropy",
+                         metrics=['acc'])
 
     def getModel(self):
         return self.seg

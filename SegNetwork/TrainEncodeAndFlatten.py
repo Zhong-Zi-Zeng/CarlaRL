@@ -23,7 +23,7 @@ RATIO = 0.7
 NUM_TRAINS = int(len(x_train_name) * RATIO)
 
 # 訓練批次
-BATCH_SIZE = 128
+BATCH_SIZE = 64
 
 # 學習率
 LR = 0.001
@@ -35,6 +35,7 @@ EncodeAndFlattenNetwork.model.summary()
 losses = {'TL': 'categorical_crossentropy',
           'TL_dis': 'categorical_crossentropy',
           'need_slow': 'categorical_crossentropy'}
+
 
 EncodeAndFlattenNetwork.model.compile(optimizer=Adam(learning_rate=LR), loss=losses, metrics=['acc'])
 

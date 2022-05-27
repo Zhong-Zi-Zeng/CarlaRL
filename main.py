@@ -31,13 +31,13 @@ class main:
                          epsilon=0.4,
                          batch_size=16,
                          epsilon_end=0.1,
-                         mem_size=100000,
+                         mem_size=8192,
                          epsilon_dec=0.96,
-                         input_shape=24,
+                         input_shape=17,
                          iteration=100,
                          use_pri=True)
         # 載入上次權重並繼續訓練
-        # self.DQN.load_model()
+        self.DQN.load_model()
         self.GUI = GUI()
         # 期望時速
         self.DESIRED_SPEED = 8
@@ -74,14 +74,14 @@ class main:
         # 交通狀況
         self.pre_need_slow, self.pre_tl, self.pre_tl_dis = self.EncodeAndFlattenNetwork.predict(bgr_frame)
         self.pre_need_slow = np.squeeze(self.pre_need_slow)
-        self.pre_tl = np.squeeze(self.pre_tl)
-        self.pre_tl_dis = np.squeeze(self.pre_tl_dis)
+        # self.pre_tl = np.squeeze(self.pre_tl)
+        # self.pre_tl_dis = np.squeeze(self.pre_tl_dis)
 
-        NeedSlow = 1 if self.pre_need_slow > self.THRESHOLD else 0
-        TL = np.zeros(3)
-        TL[np.argmax(self.pre_tl)] = 1
-        TL_dis = np.zeros(4)
-        TL_dis[np.argmax(self.pre_tl_dis)] = 1
+        NeedSlow = 1 if np.argmax(self.pre_need_slow) == 0 else 0
+        # TL = np.zeros(3)
+        # TL[np.argmax(self.pre_tl)] = 1
+        # TL_dis = np.zeros(4)
+        # TL_dis[np.argmax(self.pre_tl_dis)] = 1
 
         # 角度部分
         car_data['way_degree'] = np.clip(car_data['way_degree'], -60, 60)
@@ -101,7 +101,7 @@ class main:
                 dis_state[i - 1] = 1
                 break
 
-        state = np.hstack((degree_state,dis_state,car_data['car_speed'],NeedSlow,TL,TL_dis))
+        state = np.hstack((degree_state,dis_state,car_data['car_speed'],NeedSlow))
         return state
 
     def show_state(self):
@@ -113,27 +113,30 @@ class main:
         car_data['way_dis'] = str(round(car_data['way_dis'],2)) + ' m'
 
         # 交通狀況
-        Pre_needslow = 'True' if self.pre_need_slow > self.THRESHOLD else 'False'
-
-        if np.argmax(self.pre_tl) == 0:
-            Pre_TL = 'Green'
-        elif np.argmax(self.pre_tl) == 1:
-            Pre_TL = 'Red'
+        if np.argmax(self.pre_need_slow) == 0:
+            Pre_needslow = 'True'
         else:
-            Pre_TL = 'None'
-
-        if np.argmax(self.pre_tl_dis) == 0:
-            Pre_TL_dis = 'Close'
-        elif np.argmax(self.pre_tl_dis) == 1:
-            Pre_TL_dis = 'Medium'
-        elif np.argmax(self.pre_tl_dis) == 2:
-            Pre_TL_dis = 'Far'
-        else:
-            Pre_TL_dis = 'None'
+            Pre_needslow = 'False'
+        #
+        # if np.argmax(self.pre_tl) == 0:
+        #     Pre_TL = 'Green'
+        # elif np.argmax(self.pre_tl) == 1:
+        #     Pre_TL = 'Red'
+        # else:
+        #     Pre_TL = 'None'
+        #
+        # if np.argmax(self.pre_tl_dis) == 0:
+        #     Pre_TL_dis = 'Close'
+        # elif np.argmax(self.pre_tl_dis) == 1:
+        #     Pre_TL_dis = 'Medium'
+        # elif np.argmax(self.pre_tl_dis) == 2:
+        #     Pre_TL_dis = 'Far'
+        # else:
+        #     Pre_TL_dis = 'None'
 
         car_data['Pre_needslow'] = Pre_needslow
-        car_data['Pre_TL'] = Pre_TL
-        car_data['Pre_TL_Dis'] = Pre_TL_dis
+        # car_data['Pre_TL'] = Pre_TL
+        # car_data['Pre_TL_Dis'] = Pre_TL_dis
 
         return car_data
 
@@ -203,11 +206,11 @@ class main:
         reward = 0
 
         # 速度達標準
-        if car_data['tl']:
-            if int(car_data['car_speed']) == 0:
-                reward += 1
+        # if car_data['tl']:
+        #     if int(car_data['car_speed']) == 0:
+        #         reward += 1
         # 速度未達標準
-        elif int(car_data['car_speed']) == 0:
+        if int(car_data['car_speed']) == 0:
             reward += -1.5
 
         # 判斷位置獎勵
@@ -216,8 +219,7 @@ class main:
         # 中止訓練
         if car_data['way_dis'] > self.MAX_MIDDLE_DIS or \
             abs(car_data['way_degree']) > self.DEGREE_LIMIT or \
-            sensor_data['collision_sensor'] or \
-            car_data['tl'] and int(car_data['car_speed']) != 0 :
+            sensor_data['collision_sensor']:
             reward = -10
             done = True
 

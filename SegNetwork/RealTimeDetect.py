@@ -2,10 +2,12 @@ from SegNetwork import SegNetwork
 from CarlaApiAsync import CarlaApi
 import cv2
 import numpy as np
+import tensorflow as tf
+
 
 # 載入權重
-SegModel = SegNetwork()
-SegModel.loadWeights("./weights/ep015-loss0.017-val_acc0.945.h5")
+SegModel = SegNetwork(cls_num=5)
+SegModel.loadWeights("./weights/ep063-loss0.011-val_acc0.996.h5")
 
 CarlaApi = CarlaApi(img_width=400,img_height=300)
 CarlaApi.initial(AutoMode=True)

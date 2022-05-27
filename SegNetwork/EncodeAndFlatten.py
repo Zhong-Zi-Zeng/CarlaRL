@@ -10,12 +10,12 @@ class Network:
     def __init__(self,now_path=''):
         self.now_path = now_path
         # 原本的SegNetwork網路的權重位置
-        self.SegNetworkWeights = self.now_path + '/' +"weights/ep015-loss0.017-val_acc0.945.h5"
+        self.SegNetworkWeights = self.now_path + '/' +"weights/ep063-loss0.011-val_acc0.996.h5"
         self.EncodeNetwork = EncodeNetwork()
         self.SetEncodeNetworkWeights()
 
         # Flatten的權重位置
-        self.FlattenWeights = self.now_path + '/' + 'weights/val_TL_acc0.873-val_need_slow_acc0.998.h5'
+        self.FlattenWeights = self.now_path + '/' + 'weights/val_TL_acc0.904-val_need_slow_acc0.998.h5'
 
         self.model = None
 
@@ -26,7 +26,7 @@ class Network:
         if os.path.isfile(self.now_path + '/' + 'weights/EncodeNetWorkWeights.h5'):
             self.EncodeNetwork.load_weights(self.now_path + '/' + 'weights/EncodeNetWorkWeights.h5')
         else:
-            SegModel = SegNetwork()
+            SegModel = SegNetwork(cls_num=5)
             SegModel = SegModel.loadWeights(self.SegNetworkWeights)
             EncodeNetwork = SegModel.layers.pop(0)
 

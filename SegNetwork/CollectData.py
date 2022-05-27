@@ -10,6 +10,7 @@ from pygame import K_DOWN
 from pygame import K_LEFT
 from pygame import K_RIGHT
 from pygame import K_r
+from pygame import K_q
 import numpy as np
 from collections import deque
 
@@ -342,6 +343,9 @@ class Collector():
                 self.steer_cache += steer_increment
         else:
             self.steer_cache = 0.0
+
+        if keys[K_q]:
+            self.control.gear = 1 if self.control.reverse else -1
         self.steer_cache = min(0.7, max(-0.7, self.steer_cache))
         self.control.steer = round(self.steer_cache, 1)
         self.vehicle.apply_control(self.control)

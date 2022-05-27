@@ -155,13 +155,12 @@ class CarlaApi:
 
     """感測器回調函式"""
     def _sensor_callback(self):
-        if not self.block:
-            sensor_info = {sensor_name: self.pop_queue(sensor_queue) \
-                           for sensor_queue, sensor_name in self.sensor_queue_list}
+        # if not self.block:
+        sensor_info = {sensor_name: self.pop_queue(sensor_queue) \
+                       for sensor_queue, sensor_name in self.sensor_queue_list}
 
-            self.sensor_info_queue.append(sensor_info)
-
-            self.block = True if sensor_info['collision_sensor'] else False
+        self.sensor_info_queue.append(sensor_info)
+            # self.block = True if sensor_info['collision_sensor'] else False
 
     """等待模擬開始"""
     def wait_for_sim(self):
@@ -349,7 +348,7 @@ class CarlaApi:
         way_angel = countDegree(self.vehicle.get_transform(),way)
         car_info['way_degree'] = way_angel
 
-        # 真正紅綠燈訊息
+        # 紅綠燈訊息
         car_info['tl'] = self.affected_by_traffic_light()
 
         return car_info
