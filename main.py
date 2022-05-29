@@ -28,16 +28,16 @@ class main:
         self.DQN = Agent(alpha=0.0005,
                          gamma=0.99,
                          n_actions=6,
-                         epsilon=0.4,
-                         batch_size=16,
+                         epsilon=0.7,
+                         batch_size=32,
                          epsilon_end=0.1,
-                         mem_size=8192,
+                         mem_size=100000,
                          epsilon_dec=0.96,
-                         input_shape=17,
+                         input_shape=16,
                          iteration=100,
-                         use_pri=True)
+                         use_pri=False)
         # 載入上次權重並繼續訓練
-        self.DQN.load_model()
+        # self.DQN.load_model()
         self.GUI = GUI()
         # 期望時速
         self.DESIRED_SPEED = 8
@@ -45,8 +45,6 @@ class main:
         self.MAX_MIDDLE_DIS = 5
         # 允許偏移角度
         self.DEGREE_LIMIT = 130
-        # 全連接網路輸出閥值
-        self.THRESHOLD = 0.8
         # 總訓練次數
         self.EPISODES = 100000
         # 預測變數
@@ -101,7 +99,7 @@ class main:
                 dis_state[i - 1] = 1
                 break
 
-        state = np.hstack((degree_state,dis_state,car_data['car_speed'],NeedSlow))
+        state = np.hstack((degree_state,dis_state,car_data['car_speed']))
         return state
 
     def show_state(self):

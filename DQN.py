@@ -20,10 +20,12 @@ def build_dqn(lr,n_actions,input_shape):
     h2 = Dense(512, activation='relu')(h1)
     h3 = Dense(256, activation='relu')(h2)
     h4 = Dense(128, activation='relu')(h3)
-    output = Dense(n_actions,activation='linear')(h4)
+    A = Dense(n_actions, activation='linear')(h4)
+    V = Dense(1, activation='linear')(h4)
+    Q = (V + (A - tf.reduce_mean(A, axis=1, keepdims=True)))
 
-    model = Model(inputs=[input],outputs=[output])
-    model.compile(Adam(learning_rate=lr),loss='mse')
+    model = Model(inputs=[input],outputs=[Q])
+    model.compile(RMSprop(learning_rate=lr),loss='mse')
     model.summary()
 
     return model
@@ -178,11 +180,12 @@ class Agent():
         action_indices = np.dot(action,action_values)
 
         # 每batch_size次後下降epsilon
-        self.epsilon = self.epsilon * self.epsilon_dec if self.epsilon > self.epsilon_end else self.epsilon_end
+        if self.memory.mem_counter % self.batch_size == 0:
+            self.epsilon = self.epsilon * self.epsilon_dec if self.epsilon > self.epsilon_end else self.epsilon_end
 
         # 舊神經網路預測的Q值
         q_eval = self.q_eval.predict(state)
-        q_eval_max_action = np.argmax(self.q_eval.predict(next_state), axis=1)
+        # q_eval_max_action = np.argmax(self.q_eval.predict(next_state), axis=1)
 
         # 新神經網路預測的Q值
         q_target_pre = self.q_target_net.predict(next_state)
@@ -191,7 +194,7 @@ class Agent():
         batch_index = np.arange(self.batch_size, dtype=np.int32)
 
         # 貝爾曼方程
-        q_target[batch_index, action_indices] = reward + self.gamma * q_target_pre[batch_index, q_eval_max_action] * done
+        q_target[batch_index, action_indices] = reward + self.gamma * np.max(q_target_pre,axis=1) * done
 
         # 更新參數
         if self.use_pri:
