@@ -20,9 +20,10 @@ def build_dqn(lr,n_actions,input_shape):
     h2 = Dense(512, activation='relu')(h1)
     h3 = Dense(256, activation='relu')(h2)
     h4 = Dense(128, activation='relu')(h3)
+    h5 = Dense(64, activation='relu')(h4)
 
-    A = Dense(n_actions, activation='linear')(h4)
-    V = Dense(1, activation='linear')(h4)
+    A = Dense(n_actions, activation='linear')(h5)
+    V = Dense(1, activation='linear')(h5)
     Q = (V + (A - tf.reduce_mean(A, axis=1, keepdims=True)))
 
     model = Model(inputs=[input],outputs=[Q])
