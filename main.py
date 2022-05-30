@@ -24,20 +24,20 @@ class main:
     def __init__(self):
         self.CarlaApi = CarlaApi(img_width=400,
                                  img_height=300,
-                                 MIN_MIDDLE_DIS=0.75)
+                                 MIN_MIDDLE_DIS=0.8)
         self.DQN = Agent(alpha=0.0005,
                          gamma=0.99,
                          n_actions=6,
-                         epsilon=0.7,
-                         batch_size=32,
+                         epsilon=0.4,
+                         batch_size=16,
                          epsilon_end=0.1,
                          mem_size=100000,
                          epsilon_dec=0.96,
-                         input_shape=16,
+                         input_shape=3,
                          iteration=100,
-                         use_pri=False)
+                         use_pri=True)
         # 載入上次權重並繼續訓練
-        # self.DQN.load_model()
+        self.DQN.load_model()
         self.GUI = GUI()
         # 期望時速
         self.DESIRED_SPEED = 8
@@ -81,30 +81,32 @@ class main:
         # TL_dis = np.zeros(4)
         # TL_dis[np.argmax(self.pre_tl_dis)] = 1
 
+        """允許角度有到130，但這邊只有60"""
         # 角度部分
-        car_data['way_degree'] = np.clip(car_data['way_degree'], -60, 60)
-        degree_lin = np.linspace(-60, 60, 10)
-        degree_state = np.zeros(10)
-        for i in range(len(degree_lin)):
-            if car_data['way_degree'] < degree_lin[i]:
-                degree_state[i - 1] = 1
-                break
+        # car_data['way_degree'] = np.clip(car_data['way_degree'], -60, 60)
+        # degree_lin = np.linspace(-60, 60, 10)
+        # degree_state = np.zeros(10)
+        # for i in range(len(degree_lin)):
+        #     if car_data['way_degree'] < degree_lin[i]:
+        #         degree_state[i - 1] = 1
+        #         break
 
         # 距離部分
-        car_data['way_dis'] = np.clip(car_data['way_dis'], 0.6, 5)
-        dis_lin = np.linspace(0.6,5,5)
-        dis_state = np.zeros(5)
-        for i in range(len(dis_lin)):
-            if car_data['way_dis'] < dis_lin[i]:
-                dis_state[i - 1] = 1
-                break
+        # car_data['way_dis'] = np.clip(car_data['way_dis'], 0.6, 5)
+        # dis_lin = np.linspace(0.6,5,5)
+        # dis_state = np.zeros(5)
+        # for i in range(len(dis_lin)):
+        #     if car_data['way_dis'] < dis_lin[i]:
+        #         dis_state[i - 1] = 1
+        #         break
 
-        state = np.hstack((degree_state,dis_state,car_data['car_speed']))
+        # state = np.hstack((degree_state,dis_state,car_data['car_speed']))
+        state = np.hstack((car_data['way_degree'],car_data['way_dis'],car_data['car_speed']))
         return state
 
     def show_state(self):
         car_data = self.CarlaApi.car_data()
-        del car_data['tl']
+        # del car_data['tl']
 
         car_data['car_speed'] = str(round(car_data['car_speed'],2)) + ' km/h'
         car_data['way_degree'] = str(round(car_data['way_degree'],2)) + ' °'
@@ -142,7 +144,7 @@ class main:
         self.CarlaApi.initial()
         self.CarlaApi.wait_for_sim()
         total_reward_list = []
-
+        mean_reward_list = []
         try:
             for i in range(self.EPISODES):
                 done = False
@@ -184,6 +186,7 @@ class main:
                     pygame.display.update()
 
                 total_reward_list.append(total_reward)
+                mean_reward_list.append(np.mean(total_reward_list))
                 if i % 10 == 0:
                     self.DQN.save_model()
 
@@ -191,7 +194,9 @@ class main:
                 time.sleep(0.5)
         finally:
             cv2.destroyAllWindows()
-            plt.plot(total_reward_list)
+            plt.plot(mean_reward_list)
+            plt.ylabel('Mean Score')
+            plt.xlabel('Train Times')
             plt.show()
             self.CarlaApi.destroy()
             print('Destroy actor')
@@ -209,16 +214,17 @@ class main:
         #         reward += 1
         # 速度未達標準
         if int(car_data['car_speed']) == 0:
-            reward += -1.5
+            reward += -1
 
         # 判斷位置獎勵
-        reward += np.exp(-abs(car_data['way_degree']) / 15) * 1.5
+        # reward += np.exp(-abs(car_data['way_degree']) / 15) * 1.7
+        reward += -0.0115 * car_data['way_degree'] + 1.5
 
         # 中止訓練
         if car_data['way_dis'] > self.MAX_MIDDLE_DIS or \
             abs(car_data['way_degree']) > self.DEGREE_LIMIT or \
             sensor_data['collision_sensor']:
-            reward = -10
+            reward = -15
             done = True
 
         return reward, done

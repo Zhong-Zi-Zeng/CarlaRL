@@ -349,7 +349,7 @@ class CarlaApi:
         car_info['way_degree'] = way_angel
 
         # 紅綠燈訊息
-        car_info['tl'] = self.affected_by_traffic_light()
+        # car_info['tl'] = self.affected_by_traffic_light()
 
         return car_info
 
