@@ -34,7 +34,7 @@ class main:
                          epsilon_end=0.1,
                          mem_size=50000,
                          epsilon_dec=0.96,
-                         input_shape=21,
+                         input_shape=1,
                          iteration=100,
                          use_pri=True)
         # 載入上次權重並繼續訓練
@@ -86,26 +86,28 @@ class main:
         # TL_dis[np.argmax(self.pre_tl_dis)] = 1
 
         # 角度部分
-        car_data['way_degree'] = np.clip(car_data['way_degree'], -130, 130)
-        degree_lin = np.linspace(-130, 130, 15)
-        degree_state = np.zeros(15)
-        for i in range(len(degree_lin)):
-            if car_data['way_degree'] < degree_lin[i]:
-                degree_state[i - 1] = 1
-                break
+        # car_data['way_degree'] = np.clip(car_data['way_degree'], -130, 130)
+        # degree_lin = np.linspace(-130, 130, 15)
+        # degree_state = np.zeros(15)
+        # for i in range(len(degree_lin)):
+        #     if car_data['way_degree'] < degree_lin[i]:
+        #         degree_state[i - 1] = 1
+        #         break
+        #
+        # # 距離部分
+        # car_data['way_dis'] = np.clip(car_data['way_dis'], 0.6, 5)
+        # dis_lin = np.linspace(0.6,5,5)
+        # dis_state = np.zeros(5)
+        # for i in range(len(dis_lin)):
+        #     if car_data['way_dis'] < dis_lin[i]:
+        #         dis_state[i - 1] = 1
+        #         break
 
-        # 距離部分
-        car_data['way_dis'] = np.clip(car_data['way_dis'], 0.6, 5)
-        dis_lin = np.linspace(0.6,5,5)
-        dis_state = np.zeros(5)
-        for i in range(len(dis_lin)):
-            if car_data['way_dis'] < dis_lin[i]:
-                dis_state[i - 1] = 1
-                break
-
-        state = np.hstack((degree_state,dis_state,car_data['car_speed']))
+        # state = np.hstack((degree_state,dis_state,car_data['car_speed']))
         # state = np.hstack((car_data['way_degree'],car_data['way_dis'],car_data['car_speed']))
-        return state
+        state = np.array(car_data['way_degree']) * np.array(car_data['way_dis'])
+
+        return [state]
 
     def show_state(self):
         car_data = self.CarlaApi.car_data()
@@ -218,7 +220,7 @@ class main:
         #         reward += 1
         # 速度未達標準
         if int(car_data['car_speed']) == 0:
-            reward += -2
+            reward += -1.5
 
         # 判斷位置獎勵
         # reward += np.exp(-abs(car_data['way_degree']) / 15) * 1.7
@@ -254,15 +256,16 @@ class main:
             control.throttle = 0.0
             control.brake = 0.5
         elif (self.action == 2):
-            control.steer = -0.3
+            control.steer = -0.2
         elif (self.action == 3):
-            control.steer = 0.3
+            control.steer = 0.2
         elif (self.action == 4):
-            control.steer = -0.7
+            control.steer = -0.6
         elif (self.action == 5):
-            control.steer = 0.7
+            control.steer = 0.6
 
         self.CarlaApi.control_vehicle(control)
+
 
 if __name__ == "__main__":
     main()
