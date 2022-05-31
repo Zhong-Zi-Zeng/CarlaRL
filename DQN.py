@@ -131,7 +131,7 @@ class Agent():
                  ,input_shape
                  ,iteration
                  ,use_pri
-                 ,f_name="dqn_model.h5"):
+                 ,f_name="dqn_model_weights.h5"):
 
         self.action_space = [i for i in range(n_actions)]
         self.n_actions = n_actions

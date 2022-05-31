@@ -8,6 +8,7 @@ import cv2
 import numpy as np
 import os
 import time
+import copy
 import pygame
 
 # 動作對照表
@@ -33,7 +34,7 @@ class main:
                          epsilon_end=0.1,
                          mem_size=50000,
                          epsilon_dec=0.96,
-                         input_shape=16,
+                         input_shape=21,
                          iteration=100,
                          use_pri=True)
         # 載入上次權重並繼續訓練
@@ -51,6 +52,9 @@ class main:
         self.pre_tl = None
         self.pre_need_slow = None
         self.pre_tl_dis = None
+        # 紀錄動作，用來計算油耗獎勵
+        self.action = None
+        self.last_action = None
         # 載入編碼網路及全連接層網路
         self.now_path = os.getcwd().replace('\\','/') + '/SegNetwork'
         self.EncodeAndFlattenNetwork = Network(now_path=self.now_path).buildModel()
@@ -81,11 +85,10 @@ class main:
         # TL_dis = np.zeros(4)
         # TL_dis[np.argmax(self.pre_tl_dis)] = 1
 
-        """允許角度有到130，但這邊只有60"""
         # 角度部分
         car_data['way_degree'] = np.clip(car_data['way_degree'], -130, 130)
-        degree_lin = np.linspace(-130, 130, 10)
-        degree_state = np.zeros(10)
+        degree_lin = np.linspace(-130, 130, 15)
+        degree_state = np.zeros(15)
         for i in range(len(degree_lin)):
             if car_data['way_degree'] < degree_lin[i]:
                 degree_state[i - 1] = 1
@@ -155,20 +158,21 @@ class main:
 
                 while not done:
                     # 選取動作
-                    action = self.DQN.choose_action(state)
-                    self.control_car(action)
+                    self.action = self.DQN.choose_action(state)
+                    self.control_car()
 
                     # 顯示影像
                     self.GUI.clear()
                     self.GUI.draw_image(top_bgr_frame)
                     self.GUI.draw_text_info(self.show_state(),
-                                            action=action_chart[action],
+                                            action=action_chart[self.action],
                                             episode=i)
                     if self.GUI.should_quit():
                         return
 
                     # 計算獎勵
                     reward, done = self.compute_reward()
+                    self.last_action = self.action
                     total_reward += reward
 
                     # St+1時刻的影像
@@ -176,7 +180,7 @@ class main:
                     next_state = self.get_state(next_front_bgr_frame)
 
                     # 訓練網路
-                    self.DQN.remember(state, action, reward, next_state, done)
+                    self.DQN.remember(state, self.action, reward, next_state, done)
                     self.DQN.learn()
 
                     # 更改狀態
@@ -214,11 +218,17 @@ class main:
         #         reward += 1
         # 速度未達標準
         if int(car_data['car_speed']) == 0:
-            reward += -5
+            reward += -2
 
         # 判斷位置獎勵
         # reward += np.exp(-abs(car_data['way_degree']) / 15) * 1.7
-        reward += -0.0115 * car_data['way_degree'] + 1.5
+        # reward += -0.0115 * car_data['way_degree'] + 1.5
+        if abs(car_data['way_degree']) <= 20:
+            reward += 1
+
+        # 油耗懲罰
+        if self.last_action == 1 and self.action != 1:
+            reward += -1
 
         # 中止訓練
         if car_data['way_dis'] > self.MAX_MIDDLE_DIS or \
@@ -231,25 +241,25 @@ class main:
 
 
     """車輛控制"""
-    def control_car(self,action):
+    def control_car(self):
         """:param
                 0:前進、1:煞車、2:半左轉、3:半右轉、4:全左轉、5:全右轉
         """
         control = carla.VehicleControl()
         control.throttle = 0.35
-        control.brake = 0.5
-        if (action == 0):
+        control.brake = 0
+        if (self.action == 0):
             control.steer = 0.0
-        elif (action == 1):
+        elif (self.action == 1):
             control.throttle = 0.0
-            control.brake = 1.0
-        elif (action == 2):
+            control.brake = 0.5
+        elif (self.action == 2):
             control.steer = -0.3
-        elif (action == 3):
+        elif (self.action == 3):
             control.steer = 0.3
-        elif (action == 4):
+        elif (self.action == 4):
             control.steer = -0.7
-        elif (action == 5):
+        elif (self.action == 5):
             control.steer = 0.7
 
         self.CarlaApi.control_vehicle(control)

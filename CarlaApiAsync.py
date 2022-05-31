@@ -99,7 +99,8 @@ class CarlaApi:
         self.map = None
         self.blueprint_library = None
         self.vehicle = None
-        self.vehicle_transform = None
+        self.vehicle_transform = carla.Transform(carla.Location(x=103.246056, y=241.003250, z=0.217431), carla.Rotation(pitch=-0.008306, yaw=2.298748, roll=-0.000061))
+
         self.TL_list = None
         self.block = False
         self.MIN_MIDDLE_DIS = MIN_MIDDLE_DIS
@@ -176,11 +177,13 @@ class CarlaApi:
     """產生車輛"""
     def _spawn_vehicle(self,AutoMode):
         vehicle_bp = self.blueprint_library.filter('vehicle')[0]
-        if(self.vehicle_transform is not None):
-            self.vehicle.set_transform(self.vehicle_transform)
-        else:
-            self.vehicle_transform = np.random.choice(self.world.get_map().get_spawn_points())
+        # if(self.vehicle_transform is not None):
+        #     self.vehicle.set_transform(self.vehicle_transform)
+        # else:
+            # self.vehicle_transform = np.random.choice(self.world.get_map().get_spawn_points())
+        if self.vehicle is None:
             self.vehicle = self.world.spawn_actor(vehicle_bp, self.vehicle_transform)
+        self.vehicle.set_transform(self.vehicle_transform)
 
         self.vehicle.set_autopilot(AutoMode)
 
