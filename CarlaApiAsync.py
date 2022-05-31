@@ -106,7 +106,7 @@ class CarlaApi:
         self.MIN_MIDDLE_DIS = MIN_MIDDLE_DIS
         self.img_width = img_width
         self.img_height = img_height
-        self.frame = 0
+        self.dis_count = 0 # 紀錄行走距離
 
         self.waypoint_list = []
         self.sensor_list = []
@@ -170,6 +170,7 @@ class CarlaApi:
     """切換下一個路徑點"""
     def _toggle_waypoint(self):
         self.waypoint_list.pop(0)
+        self.dis_count += 1
         # 當路徑點被取完後生成新的路徑點
         if not len(self.waypoint_list):
             self._build_waypoint()
@@ -281,6 +282,7 @@ class CarlaApi:
         self.vehicle.set_target_velocity(velocity)
         self.control_vehicle(control)
         self.block = False
+        self.dis_count = 0
         self._spawn_vehicle(AutoMode=False)
         self._build_waypoint()
         self._clear_queue()
@@ -364,3 +366,7 @@ class CarlaApi:
                 return sensor_info
             except:
                 continue
+
+    """獲取目前行走距離"""
+    def get_move_dis(self):
+        return self.dis_count * 3

@@ -8,7 +8,6 @@ import cv2
 import numpy as np
 import os
 import time
-import copy
 import pygame
 
 # 動作對照表
@@ -150,6 +149,7 @@ class main:
         self.CarlaApi.wait_for_sim()
         total_reward_list = []
         mean_reward_list = []
+        dis_div_time = []
         try:
             for i in range(self.EPISODES):
                 done = False
@@ -157,6 +157,7 @@ class main:
                 # St時刻的狀態
                 front_bgr_frame, top_bgr_frame, seg_frame = self.get_image()
                 state = self.get_state(front_bgr_frame)
+                start_time = time.time()
 
                 while not done:
                     # 選取動作
@@ -193,6 +194,9 @@ class main:
 
                 total_reward_list.append(total_reward)
                 mean_reward_list.append(np.mean(total_reward_list))
+                end_time = time.time()
+                dis_div_time.append(self.CarlaApi.get_move_dis() / (end_time - start_time))
+
                 if i % 10 == 0:
                     self.DQN.save_model()
 
@@ -200,9 +204,18 @@ class main:
                 time.sleep(0.5)
         finally:
             cv2.destroyAllWindows()
-            plt.plot(mean_reward_list)
-            plt.ylabel('Mean Score')
+            plt.subplot(121)
             plt.xlabel('Train Times')
+            plt.ylabel('Mean Score')
+            plt.plot(mean_reward_list)
+            plt.grid()
+
+            plt.subplot(122)
+            plt.xlabel('Train Times')
+            plt.ylabel('Velocity')
+            plt.plot(dis_div_time)
+            plt.grid()
+
             plt.show()
             self.CarlaApi.destroy()
             print('Destroy actor')
