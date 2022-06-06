@@ -40,11 +40,33 @@ class Network(Model):
     def call(self,inputs):
         output = self.seq_model(inputs)
 
-        need_slow = self.need_slow_dense(output)
-        TL = self.TL_dense(output)
-        TL_dis_dense = self.TL_dis_dense(output)
+        # need_slow = self.need_slow_dense(output)
+        # TL = self.TL_dense(output)
+        # TL_dis_dense = self.TL_dis_dense(output)
 
-        return need_slow, TL, TL_dis_dense
+        return output
+
+def build_model():
+    inputs = Input(shape=(300, 400, 3))
+    output = Network()(inputs)
+
+    output_1 = Dense(1024, activation='relu')(output)
+    output_1 = Dense(512, activation='relu')(output_1)
+
+    output_2 = Dense(1024, activation='relu')(output)
+    output_2 = Dense(512, activation='relu')(output_2)
+
+    output_3 = Dense(1024, activation='relu')(output)
+    output_3 = Dense(512, activation='relu')(output_3)
+
+    need_slow = Dense(2, activation='softmax', name='need_slow')(output_1)
+    TL = Dense(3, activation='softmax', name='TL')(output_2)
+    TL_dis = Dense(4, activation='softmax', name='TL_dis')(output_3)
+
+    model = Model(inputs=inputs, outputs=[need_slow, TL, TL_dis])
+
+    return model
+
 
 # 載入訓練數據
 x_train_path = './data'
@@ -61,7 +83,7 @@ BATCH_SIZE = 64
 # 學習率
 LEARNING_RARE = 0.01
 
-model = Network()
+model = build_model()
 opt = Adam(learning_rate=LEARNING_RARE)
 losses = {
     'TL': 'categorical_crossentropy',
@@ -134,4 +156,5 @@ model.fit(generate(x_train_name[:NUM_TRAINS],batch_size=BATCH_SIZE),
             epochs=50,
             validation_steps=max(1, len(x_train_name[NUM_TRAINS:]) // BATCH_SIZE),
             initial_epoch=0,
-            callbacks=[learning_rate_reduction,checkpoint_period,early_stopping])
+            callbacks=[learning_rate_reduction,checkpoint_period,early_stopping]
+            )
