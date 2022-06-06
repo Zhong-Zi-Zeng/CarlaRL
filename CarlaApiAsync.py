@@ -226,7 +226,7 @@ class CarlaApi:
         self.sensor_list.append([collision_sensor,'collision_sensor'])
 
     """生成路徑點"""
-    def _build_waypoint(self,distance=10000,sample=3):
+    def _build_waypoint(self,distance=50000,sample=3):
         self.waypoint_list = []
         first_way = self.map.get_waypoint(self.vehicle_transform.location).next(sample)
         self.waypoint_list.append(first_way[0])

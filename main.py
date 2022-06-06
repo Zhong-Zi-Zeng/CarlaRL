@@ -84,27 +84,7 @@ class main:
         # TL_dis = np.zeros(4)
         # TL_dis[np.argmax(self.pre_tl_dis)] = 1
 
-        # 角度部分
-        # car_data['way_degree'] = np.clip(car_data['way_degree'], -130, 130)
-        # degree_lin = np.linspace(-130, 130, 15)
-        # degree_state = np.zeros(15)
-        # for i in range(len(degree_lin)):
-        #     if car_data['way_degree'] < degree_lin[i]:
-        #         degree_state[i - 1] = 1
-        #         break
-        #
-        # # 距離部分
-        # car_data['way_dis'] = np.clip(car_data['way_dis'], 0.6, 5)
-        # dis_lin = np.linspace(0.6,5,5)
-        # dis_state = np.zeros(5)
-        # for i in range(len(dis_lin)):
-        #     if car_data['way_dis'] < dis_lin[i]:
-        #         dis_state[i - 1] = 1
-        #         break
-
-        # state = np.hstack((degree_state,dis_state,car_data['car_speed']))
         state = np.hstack((car_data['way_degree'],car_data['way_dis'],car_data['car_speed'],NeedSlow))
-        # state = np.array(car_data['way_degree']) * np.array(car_data['way_dis'])
 
         return state
 

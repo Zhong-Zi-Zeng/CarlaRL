@@ -3,7 +3,6 @@ from SegEncodeNetwork import EncodeNetwork
 from tensorflow.keras.optimizers import *
 from tensorflow.keras.models import *
 import tensorflow as tf
-import tensorflow_addons as tfa
 import numpy as np
 
 
