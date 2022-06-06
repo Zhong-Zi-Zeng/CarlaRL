@@ -26,14 +26,14 @@ class main:
                                  img_height=300,
                                  MIN_MIDDLE_DIS=0.8)
         self.DQN = Agent(alpha=0.0005,
-                         gamma=0.99,
+                         gamma=0.9,
                          n_actions=6,
                          epsilon=0.4,
-                         batch_size=16,
-                         epsilon_end=0.1,
+                         batch_size=128,
+                         epsilon_end=0.01,
                          mem_size=50000,
                          epsilon_dec=0.96,
-                         input_shape=1,
+                         input_shape=4,
                          iteration=100,
                          use_pri=True)
         # 載入上次權重並繼續訓練
@@ -103,10 +103,10 @@ class main:
         #         break
 
         # state = np.hstack((degree_state,dis_state,car_data['car_speed']))
-        # state = np.hstack((car_data['way_degree'],car_data['way_dis'],car_data['car_speed']))
-        state = np.array(car_data['way_degree']) * np.array(car_data['way_dis'])
+        state = np.hstack((car_data['way_degree'],car_data['way_dis'],car_data['car_speed'],NeedSlow))
+        # state = np.array(car_data['way_degree']) * np.array(car_data['way_dis'])
 
-        return [state]
+        return state
 
     def show_state(self):
         car_data = self.CarlaApi.car_data()
@@ -233,17 +233,17 @@ class main:
         #         reward += 1
         # 速度未達標準
         if int(car_data['car_speed']) == 0:
-            reward += -1.5
+            reward += -2
 
         # 判斷位置獎勵
         # reward += np.exp(-abs(car_data['way_degree']) / 15) * 1.7
         # reward += -0.0115 * car_data['way_degree'] + 1.5
-        if abs(car_data['way_degree']) <= 20:
+        if abs(car_data['way_degree']) <= 15:
             reward += 1
 
         # 油耗懲罰
         if self.last_action == 1 and self.action != 1:
-            reward += -1
+            reward += -1.5
 
         # 中止訓練
         if car_data['way_dis'] > self.MAX_MIDDLE_DIS or \
@@ -273,9 +273,9 @@ class main:
         elif (self.action == 3):
             control.steer = 0.2
         elif (self.action == 4):
-            control.steer = -0.6
+            control.steer = -0.55
         elif (self.action == 5):
-            control.steer = 0.6
+            control.steer = 0.55
 
         self.CarlaApi.control_vehicle(control)
 
